@@ -1,0 +1,42 @@
+{
+  "id": "demo-candidate",
+  "datasetId": "knot-synthetic",
+  "datasetVersion": "1.0",
+  "corpusHash": "synthetic-corpus-v1",
+  "name": "예시 · 비교 후보",
+  "strategy": "후보 방식",
+  "environment": "synthetic",
+  "model": "합성 결과",
+  "revision": "demo",
+  "startedAt": "2026-11-02T00:05:00Z",
+  "status": "completed",
+  "results": [
+    {
+      "caseId": "S01-01",
+      "status": "completed",
+      "candidates": ["doc-payment"],
+      "answer": "결제 취소는 승인 후 7일 이내로 결정됐어요.",
+      "evidenceIds": ["doc-payment"],
+      "latencyMs": 1500,
+      "error": null
+    },
+    {
+      "caseId": "S08-01",
+      "status": "completed",
+      "candidates": ["doc-payment-team"],
+      "answer": "결제 취소 기능 담당자는 민지예요.",
+      "evidenceIds": ["doc-payment-team"],
+      "latencyMs": 2100,
+      "error": null
+    },
+    {
+      "caseId": "S13-01",
+      "status": "timeout",
+      "candidates": [],
+      "answer": "",
+      "evidenceIds": [],
+      "latencyMs": null,
+      "error": "합성 타임아웃 예시"
+    }
+  ]
+}

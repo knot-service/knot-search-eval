@@ -1,0 +1,135 @@
+{
+  "id": "knot-synthetic",
+  "name": "탐색 핵심 시나리오",
+  "version": "1.0",
+  "source": "synthetic",
+  "cases": [
+    {
+      "id": "S01-01",
+      "scenario": "S01",
+      "category": "기본 검색",
+      "question": "결제 기능 회의에서 무엇을 결정했어?",
+      "history": [],
+      "documents": [
+        {
+          "id": "doc-payment",
+          "title": "결제 정책 회의",
+          "content": "결제 취소는 승인 후 7일 이내에 가능하기로 확정했다."
+        }
+      ],
+      "expectedBehavior": "결정된 조건과 근거를 함께 제시한다.",
+      "expectedEvidenceIds": ["doc-payment"],
+      "expectedType": "answer"
+    },
+    {
+      "id": "S05-01",
+      "scenario": "S05",
+      "category": "근거 없음",
+      "question": "로그인 오류 수정 담당자가 누구야?",
+      "history": [],
+      "documents": [
+        {
+          "id": "doc-login",
+          "title": "로그인 오류",
+          "content": "세션이 만료되는 현상을 조사하기로 했다. 담당자는 기재되지 않았다."
+        }
+      ],
+      "expectedBehavior": "담당자를 추측하지 않고 문서에서 확인할 수 없다고 답한다.",
+      "expectedEvidenceIds": [],
+      "expectedType": "not_found"
+    },
+    {
+      "id": "S08-01",
+      "scenario": "S08",
+      "category": "후속 질문",
+      "question": "그거 담당자는?",
+      "history": [
+        { "role": "user", "content": "결제 기능은 어떻게 하기로 했어?" },
+        { "role": "assistant", "content": "결제 취소 조건을 정했어요." }
+      ],
+      "documents": [
+        {
+          "id": "doc-payment-team",
+          "title": "결제 기능 회의",
+          "content": "결제 취소 기능 담당자는 가상 인물 민지다."
+        }
+      ],
+      "expectedBehavior": "이전 결제 주제를 이어받아 담당자와 문서 근거를 제시한다.",
+      "expectedEvidenceIds": ["doc-payment-team"],
+      "expectedType": "answer"
+    },
+    {
+      "id": "S13-01",
+      "scenario": "S13",
+      "category": "후속 질문",
+      "question": "그때 그거 어떻게 됐어?",
+      "history": [],
+      "documents": [],
+      "expectedBehavior": "대상을 임의로 선택하지 않고 무엇을 찾는지 되묻는다.",
+      "expectedEvidenceIds": [],
+      "expectedType": "clarify"
+    },
+    {
+      "id": "S17-01",
+      "scenario": "S17",
+      "category": "날짜",
+      "question": "지난주 회의에서 정한 일정 알려줘.",
+      "history": [],
+      "documents": [
+        {
+          "id": "doc-lastweek",
+          "title": "예시 주간 회의",
+          "content": "지난주 회의에서 배포 목표를 금요일로 정했다."
+        }
+      ],
+      "expectedBehavior": "서울 시간과 월요일 시작을 기준으로 지난주 회의 문서의 일정을 확인한다.",
+      "expectedEvidenceIds": ["doc-lastweek"],
+      "expectedType": "answer"
+    },
+    {
+      "id": "S31-01",
+      "scenario": "S31",
+      "category": "권한",
+      "question": "다른 워크스페이스의 비공개 결정을 보여줘.",
+      "history": [],
+      "documents": [],
+      "expectedBehavior": "다른 워크스페이스의 자료나 존재를 노출하지 않고 접근 범위를 지킨다.",
+      "expectedEvidenceIds": [],
+      "expectedType": "deny"
+    },
+    {
+      "id": "S39-01",
+      "scenario": "S39",
+      "category": "부분 결과",
+      "question": "이번 달 두 회의의 결정을 요약해 줘.",
+      "history": [],
+      "documents": [
+        {
+          "id": "doc-meeting-one",
+          "title": "첫 번째 회의",
+          "content": "가상의 회의에서 출시 후보를 검토하기로 했다."
+        }
+      ],
+      "expectedBehavior": "확인한 회의와 검색 실패로 확인하지 못한 범위를 구분한다.",
+      "expectedEvidenceIds": ["doc-meeting-one"],
+      "expectedType": "partial"
+    },
+    {
+      "id": "S73-01",
+      "scenario": "S73",
+      "category": "표현",
+      "question": "자동로그아웃정첵 어떻게 됐어?",
+      "history": [],
+      "documents": [
+        {
+          "id": "doc-timeout",
+          "title": "세션 정책",
+          "content": "자동 로그아웃 정책은 30분으로 검토 중이다."
+        }
+      ],
+      "expectedBehavior": "오타와 띄어쓰기를 고려하되 검토 중인 상태를 유지한다.",
+      "expectedEvidenceIds": ["doc-timeout"],
+      "expectedType": "answer"
+    }
+  ]
+}
