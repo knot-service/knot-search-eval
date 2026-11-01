@@ -11,11 +11,24 @@ export const CaseSchema = z.object({
   scenario: z.string().min(1).max(50),
   category: z.string().min(1).max(100),
   question: text.min(1),
+  setup: text.optional(),
+  variant: z.string().max(100).optional(),
+  issue: z.string().max(20).optional(),
   history: z
     .array(z.object({ role: z.enum(["user", "assistant"]), content: text }))
     .max(40),
   documents: z
-    .array(z.object({ id, title: text.min(1), content: text }))
+    .array(
+      z.object({
+        id,
+        title: text.min(1),
+        content: text,
+        workspaceId: id.optional(),
+        accessible: z.boolean().optional(),
+        meetingStartedAt: z.string().datetime({ offset: true }).optional(),
+        createdAt: z.string().datetime({ offset: true }).optional(),
+      }),
+    )
     .max(50),
   expectedBehavior: text.min(1),
   expectedEvidenceIds: z.array(id).max(50),

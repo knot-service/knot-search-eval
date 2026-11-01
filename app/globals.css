@@ -584,6 +584,85 @@ p {
   gap: 18px;
   align-items: start;
 }
+.case-group {
+  border-bottom: 1px solid #edf0f4;
+}
+.case-group summary {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 13px 16px;
+  font-size: 12px;
+  list-style: none;
+}
+.case-group summary::-webkit-details-marker {
+  display: none;
+}
+.case-group summary::before {
+  content: "▸";
+  color: #9994b8;
+  transition: transform 0.15s;
+}
+.case-group[open] > summary::before {
+  transform: rotate(90deg);
+}
+.case-group summary > span:last-child {
+  margin-left: auto;
+  color: #8e97a5;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.dataset-group > summary {
+  background: #fafaff;
+}
+.category-group > summary {
+  padding-left: 30px;
+}
+.scenario-group > summary {
+  padding-left: 16px;
+}
+.scenario-group > summary strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.scenario-group .case-row {
+  padding-left: 34px;
+}
+.group-meta {
+  color: #929aaa;
+  font-size: 11px;
+  padding: 0 34px 8px;
+}
+.toolbar select {
+  max-width: 240px;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+  color: #465164;
+}
+.lab-setup {
+  margin-bottom: 16px;
+  padding: 20px 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+.lab-setup strong {
+  font-size: 14px;
+}
+.lab-setup p {
+  margin: 7px 0;
+  color: #586276;
+  font-size: 12px;
+}
+.lab-setup small {
+  color: #929aaa;
+  font-size: 11px;
+}
 .case-row {
   width: 100%;
   border: 0;

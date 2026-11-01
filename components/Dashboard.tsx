@@ -18,13 +18,14 @@ import {
 } from "lucide-react";
 import type { DataState, EvalCase, Run } from "../lib/schema";
 import sampleDataset from "../data/synthetic-dataset.json";
+import fullDataset from "../data/synthetic-full-dataset.json";
 import sampleA from "../data/synthetic-run-a.json";
 import sampleB from "../data/synthetic-run-b.json";
 type Page = "overview" | "datasets" | "runs" | "compare" | "reviews";
 const nav: { id: Page; label: string; icon: typeof Search }[] = [
   { id: "overview", label: "대시보드", icon: LayoutDashboard },
   { id: "datasets", label: "평가셋", icon: FolderOpen },
-  { id: "runs", label: "실험 결과", icon: FlaskConical },
+  { id: "runs", label: "실험실", icon: FlaskConical },
   { id: "compare", label: "실험 비교", icon: GitCompareArrows },
   { id: "reviews", label: "검수 이력", icon: ClipboardCheck },
 ];
@@ -108,6 +109,7 @@ export function Dashboard() {
     [busy, setBusy] = useState(false),
     [selected, setSelected] = useState(""),
     [search, setSearch] = useState(""),
+    [datasetFilter, setDatasetFilter] = useState("auto"),
     [left, setLeft] = useState(""),
     [right, setRight] = useState(""),
     [notes, setNotes] = useState(""),
@@ -185,10 +187,19 @@ export function Dashboard() {
       ),
     [datasets],
   );
-  const filtered = allCases.filter((c) =>
-    `${c.id} ${c.question} ${c.category}`
-      .toLowerCase()
-      .includes(search.toLowerCase()),
+  const activeDataset =
+    datasetFilter === "auto"
+      ? datasets.length
+        ? `${datasets[datasets.length - 1].id}:${datasets[datasets.length - 1].version}`
+        : ""
+      : datasetFilter;
+  const filtered = allCases.filter(
+    (c) =>
+      (!activeDataset ||
+        `${c.datasetId}:${c.datasetVersion}` === activeDataset) &&
+      `${c.id} ${c.scenario} ${c.question} ${c.category} ${c.datasetName}`
+        .toLowerCase()
+        .includes(search.toLowerCase()),
   );
   const focus =
     filtered.find(
@@ -461,6 +472,21 @@ export function Dashboard() {
                     </label>
                   </div>
                   <div className="toolbar">
+                    {!datasets.some(
+                      (d) =>
+                        d.id === fullDataset.id &&
+                        d.version === fullDataset.version,
+                    ) && (
+                      <button
+                        className="outline"
+                        disabled={busy}
+                        onClick={() =>
+                          action({ type: "import_dataset", data: fullDataset })
+                        }
+                      >
+                        전체 시나리오 초안 추가
+                      </button>
+                    )}
                     <div className="search">
                       <Search size={16} />
                       <input
@@ -469,6 +495,21 @@ export function Dashboard() {
                         onChange={(e) => setSearch(e.target.value)}
                       />
                     </div>
+                    <select
+                      aria-label="평가셋 선택"
+                      value={activeDataset}
+                      onChange={(e) => setDatasetFilter(e.target.value)}
+                    >
+                      <option value="">전체 평가셋</option>
+                      {datasets.map((d) => (
+                        <option
+                          key={`${d.id}:${d.version}`}
+                          value={`${d.id}:${d.version}`}
+                        >
+                          {d.name} · v{d.version}
+                        </option>
+                      ))}
+                    </select>
                     <span className="muted">{filtered.length}개 사례</span>
                   </div>
                   {!datasets.length ? (
@@ -520,33 +561,67 @@ export function Dashboard() {
                               <p>사례를 선택해 기대 동작을 확인하세요.</p>
                             </div>
                           </div>
-                          {filtered.map((c) => {
-                            const key = `${c.datasetId}:${c.datasetVersion}:${c.id}`;
-                            const r = reviews
-                              .filter(
-                                (r) =>
-                                  `${r.datasetId}:${r.datasetVersion}:${r.caseId}` ===
-                                  key,
-                              )
-                              .at(-1);
-                            return (
-                              <button
-                                key={key}
-                                onClick={() => setSelected(key)}
-                                className={`case-row ${focus?.id === c.id ? "selected" : ""}`}
-                              >
-                                <span className="case-id">{c.id}</span>
-                                <span className="row-main">
-                                  <strong>{c.question}</strong>
-                                  <small>
-                                    {c.category} · {labels[c.expectedType]}
-                                  </small>
-                                </span>
-                                <span className={`badge ${r ? "" : "neutral"}`}>
-                                  {r ? labels[r.outcome] : "미검수"}
-                                </span>
-                              </button>
+                          {datasets.flatMap((dataset) => {
+                            const items = filtered.filter(
+                              (c) =>
+                                c.datasetId === dataset.id &&
+                                c.datasetVersion === dataset.version,
                             );
+                            return [
+                              ...new Set(items.map((c) => c.scenario)),
+                            ].map((scenario) => {
+                              const cases = items.filter(
+                                (c) => c.scenario === scenario,
+                              );
+                              return (
+                                <details
+                                  className="case-group scenario-group"
+                                  key={`${dataset.id}:${dataset.version}:${scenario}`}
+                                >
+                                  <summary>
+                                    <span className="case-id">{scenario}</span>
+                                    <strong>{cases[0]?.question}</strong>
+                                    <span>{cases.length}개</span>
+                                  </summary>
+                                  <div className="group-meta">
+                                    {dataset.name} · {cases[0]?.category}
+                                  </div>
+                                  {cases.map((c) => {
+                                    const key = `${c.datasetId}:${c.datasetVersion}:${c.id}`;
+                                    const review = reviews
+                                      .filter(
+                                        (r) =>
+                                          `${r.datasetId}:${r.datasetVersion}:${r.caseId}` ===
+                                          key,
+                                      )
+                                      .at(-1);
+                                    return (
+                                      <button
+                                        key={key}
+                                        onClick={() => setSelected(key)}
+                                        className={`case-row ${focus?.datasetId === c.datasetId && focus?.datasetVersion === c.datasetVersion && focus?.id === c.id ? "selected" : ""}`}
+                                      >
+                                        <span className="case-id">{c.id}</span>
+                                        <span className="row-main">
+                                          <strong>{c.question}</strong>
+                                          <small>
+                                            {c.variant || c.category} ·{" "}
+                                            {labels[c.expectedType]}
+                                          </small>
+                                        </span>
+                                        <span
+                                          className={`badge ${review ? "" : "neutral"}`}
+                                        >
+                                          {review
+                                            ? labels[review.outcome]
+                                            : "미검수"}
+                                        </span>
+                                      </button>
+                                    );
+                                  })}
+                                </details>
+                              );
+                            });
                           })}
                           {!filtered.length && (
                             <div className="empty">검색 결과가 없어요.</div>
@@ -589,8 +664,8 @@ export function Dashboard() {
                   <div className="heading">
                     <div>
                       <div className="eyebrow">EXPERIMENTS</div>
-                      <h1>실험 결과</h1>
-                      <p>실험한 환경과 결과를 확인해요.</p>
+                      <h1>실험실</h1>
+                      <p>Spring 탐색의 개선 전후 결과를 확인하는 공간이에요.</p>
                     </div>
                     <label className="primary file-button">
                       <Plus size={16} /> 결과 가져오기
@@ -600,6 +675,22 @@ export function Dashboard() {
                         onChange={(e) => upload(e, "import_run")}
                       />
                     </label>
+                  </div>
+                  <div className="panel lab-setup">
+                    <div>
+                      <strong>Spring 탐색 실험</strong>
+                      <p>
+                        검수한 평가셋과 격리된 합성 문서로 같은 질문을 다시
+                        실행해 결과를 비교합니다.
+                      </p>
+                      <small>
+                        실행기와 평가 전용 DB 연결 준비 중 · 아직 실제 실험을
+                        시작할 수 없어요.
+                      </small>
+                    </div>
+                    <button className="outline" disabled>
+                      실험 준비 중
+                    </button>
                   </div>
                   <div className="panel">
                     <div className="panel-head">
@@ -839,6 +930,12 @@ function CaseDetail({
         <label>질문</label>
         <p className="question">{item.question}</p>
       </div>
+      {item.setup && (
+        <div className="detail-block">
+          <label>상황과 전제 · {item.variant}</label>
+          <p>{item.setup}</p>
+        </div>
+      )}
       {item.history.length > 0 && (
         <div className="detail-block">
           <label>이전 대화</label>
@@ -860,6 +957,12 @@ function CaseDetail({
             <div className="document" key={d.id}>
               <strong>{d.title}</strong>
               <small>{d.id}</small>
+              <small>
+                {d.workspaceId && `Workspace: ${d.workspaceId} · `}
+                {d.accessible === false ? "접근 불가" : "접근 가능"}
+                {d.meetingStartedAt && ` · 회의 시작: ${d.meetingStartedAt}`}
+                {d.createdAt && ` · 생성: ${d.createdAt}`}
+              </small>
               <p>{d.content}</p>
             </div>
           ))

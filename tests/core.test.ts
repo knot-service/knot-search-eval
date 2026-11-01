@@ -5,7 +5,32 @@ import { applyAction, emptyState, comparable } from "../lib/state";
 import sample from "../data/synthetic-dataset.json";
 import first from "../data/synthetic-run-a.json";
 import second from "../data/synthetic-run-b.json";
+import full from "../data/synthetic-full-dataset.json";
 import type { Run } from "../lib/schema";
+test("full draft covers each planned scenario with three cases", () => {
+  const state = applyAction(emptyState(), {
+    type: "import_dataset",
+    data: full,
+  });
+  const dataset = state.datasets[0];
+  assert.ok(dataset);
+  const counts = new Map<string, number>();
+  for (const item of dataset.cases)
+    counts.set(item.scenario, (counts.get(item.scenario) ?? 0) + 1);
+  const expected = [
+    ...Array.from(
+      { length: 76 },
+      (_, i) => `S${String(i + 1).padStart(2, "0")}`,
+    ),
+    ...Array.from(
+      { length: 9 },
+      (_, i) => `C${String(i + 1).padStart(2, "0")}`,
+    ),
+  ];
+  assert.deepEqual([...counts.keys()].sort(), expected.sort());
+  for (const count of counts.values()) assert.equal(count, 3);
+  assert.equal(dataset.locked, false);
+});
 test("password and expiring session reject wrong and malformed credentials", () => {
   const secret = "a".repeat(32);
   assert.equal(validPassword("wrong", "right"), false);
