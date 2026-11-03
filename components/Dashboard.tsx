@@ -1342,7 +1342,7 @@ function RunDetail({
               {result.privacyLogObserved && <p className="muted">합성 개인정보 로그 관측: {result.privacyLogObserved === 'exposed' ? '노출 감지' : result.privacyLogObserved === 'not_observed' ? '관측된 로그에서 노출 없음' : '확인할 수 없음'} (해당 실행의 로그만 확인)</p>}
               {result.answer && result.error && <p className="run-error">오류: {result.error}</p>}
               <p className="muted">
-                후보 {run.experiment ? "해당 없음 (고정 문서)" : run.environment === "isolated_spring" ? "미수집" : result.candidates.join(", ") || "없음"} · 근거{" "}
+                후보 {run.experiment ? "해당 없음 (고정 문서)" : run.environment === "isolated_spring" ? "미수집" : result.candidates.join(", ") || "없음"} · {run.experiment ? "모델이 제시한 근거 후보" : "근거"}{" "}
                 {result.evidenceIds.join(", ") || "없음"} ·{" "}
                 {result.latencyMs === null ? "시간 없음" : `${result.latencyMs}ms`}
               </p>

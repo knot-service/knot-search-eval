@@ -5,7 +5,7 @@ import { applyAction, comparable, emptyState } from "../lib/state";
 import sample from "../data/synthetic-dataset.json";
 
 const input = async () => ({hash:"fixture-hash", input:{datasetId:"knot-workspace-458" as const,datasetVersion:"1.30" as const,corpusHash:"corpus",cases:[{id:"S14-01",question:"담당자는?",history:[],documents:[{id:"2152",title:"환불",content:"담당자는 준호"}]}]}});
-const supported = {answer:"준호입니다",checks:[{claim:"담당자는 준호",evidenceIds:["2152"],verdict:"supported" as const,reason:"문서에 기록"}],missing:[]};
+const supported = {answer:"담당자는 준호입니다",checks:[{claim:"담당자는 준호",evidenceIds:["2152"],verdict:"supported" as const,reason:"문서에 기록"}],missing:[]};
 const result = (output: {answer:string;checks:{claim:string;evidenceIds:string[];verdict:"supported" | "unsupported" | "uncertain";reason:string}[];missing:string[]}) => ({output,inputTokens:10,outputTokens:5});
 
 test("A records fixed input, one self-check and human review without claiming search ran", async () => {
@@ -52,4 +52,22 @@ test("B does not accept a verification of a different answer", async () => {
   },input,"test-model");
   assert.equal(run.status,"failed");
   assert.equal(run.results[0].answer,"");
+});
+
+test("does not present a document as answer evidence when its claim is absent from the answer", async () => {
+  const twoDocs = async () => {
+    const fixture = await input();
+    fixture.input.cases[0].documents.push({id:"2158",title:"로그인 유지",content:"논의 중"});
+    return fixture;
+  };
+  const run = await runFixedVerification("S14-01","A",async () => result({
+    answer:"담당자는 준호입니다",
+    checks:[
+      {claim:"담당자는 준호",evidenceIds:["2152"],verdict:"supported",reason:"문서에 기록"},
+      {claim:"로그인 유지 시간은 논의 중",evidenceIds:["2158"],verdict:"supported",reason:"문서에 기록"},
+    ],
+    missing:[],
+  }),twoDocs,"test-model");
+  assert.equal(run.status,"failed");
+  assert.deepEqual(run.results[0].evidenceIds,[]);
 });
