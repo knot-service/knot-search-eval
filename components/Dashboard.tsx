@@ -23,6 +23,7 @@ import { latestCaseReviews, summarizeDatasetReviews } from "../lib/review-summar
 import { koreaTimeInText } from "../lib/korea-time";
 import { CaseSchema } from "../lib/schema";
 import { RunReviews } from "./RunReviews";
+import { ProcessComparison } from "./ProcessComparison";
 import sampleDataset from "../data/synthetic-dataset.json";
 import fullDataset from "../data/synthetic-full-dataset.json";
 import sampleA from "../data/synthetic-run-a.json";
@@ -1144,6 +1145,7 @@ function Comparison({
             ? `프롬프트가 달라요: ${a.experiment.promptVersion} → ${b.experiment.promptVersion}. 입력과 모델 등 다른 조건도 확인하세요.`
             : "평가셋, 입력 또는 실행 조건이 달라 동일 조건 비교가 아니에요."}
       </div>
+      {(a.experiment || b.experiment) && <ProcessComparison runs={[a, b]} reviews={reviews} />}
       <div className="panel">
         <div className="panel-head">
           <div>
@@ -1171,7 +1173,6 @@ function Comparison({
           </div>
         ))}
       </div>
-      {(a.experiment || b.experiment) && <div className="panel"><h2>단계별 실행 비교</h2><p className="muted">실험 상세에 기록된 검수와 판정자를 표시해요.</p><div className="comparison-row">{[a,b].map((run) => <div className="result" key={run.id}><strong>{run.experiment ? `검증 ${run.experiment.variant} · ${run.experiment.promptVersion}` : "기존 실행"}</strong>{run.experiment?.stages.map((stage) => { const review = reviews.filter((item) => item.runId === run.id && item.stageId === stage.id).sort((x,y) => y.createdAt.localeCompare(x.createdAt))[0]; return <p key={stage.id}>{stage.label} · {stage.status === "not_applicable" ? "해당 없음" : stage.status === "failed" ? "실패" : stage.status === "not_run" ? "미실행" : "실행됨"} · {stage.durationMs === null ? "시간 미수집" : `${stage.durationMs}ms`} · 품질 {review ? `${labels[review.outcome]} (${review.reviewer})` : "미검수"}</p>; })}</div>)}</div></div>}
     </>
   );
 }
