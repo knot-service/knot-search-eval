@@ -21,6 +21,7 @@ import { sharedCaseReadiness } from "../lib/local-cases";
 import { latestWorkspaceDataset } from "../lib/latest-workspace-dataset";
 import { latestCaseReviews, summarizeDatasetReviews } from "../lib/review-summary";
 import { latestReviewsByProvenance } from "../lib/review-provenance";
+import { belongsToSpace, experimentSpaces, type ExperimentSpace } from "../lib/experiment-spaces";
 import { koreaTimeInText } from "../lib/korea-time";
 import { CaseSchema } from "../lib/schema";
 import { RunReviews } from "./RunReviews";
@@ -142,6 +143,7 @@ export function Dashboard() {
     [fixedVariant, setFixedVariant] = useState("A"),
     [runSearch, setRunSearch] = useState(""),
     [runVersion, setRunVersion] = useState("all"),
+    [runSpace, setRunSpace] = useState<ExperimentSpace>("all"),
     [runLimit, setRunLimit] = useState(20),
     [localAccess, setLocalAccess] = useState(false);
   const load = useCallback(async () => {
@@ -241,7 +243,7 @@ export function Dashboard() {
   );
   const selectedExperiment = experimentCases.find((c) => c.id === experimentCase);
   const runVersions = [...new Set(runs.map((run) => `${run.datasetId}:${run.datasetVersion}`))];
-  const visibleRuns = [...runs].reverse().filter((run) => (runVersion === "all" || `${run.datasetId}:${run.datasetVersion}` === runVersion) && `${run.name} ${run.results.map((r) => r.caseId).join(" ")}`.toLowerCase().includes(runSearch.toLowerCase()));
+  const visibleRuns = [...runs].reverse().filter((run) => belongsToSpace(run, runSpace) && (runVersion === "all" || `${run.datasetId}:${run.datasetVersion}` === runVersion) && `${run.name} ${run.results.map((r) => r.caseId).join(" ")}`.toLowerCase().includes(runSearch.toLowerCase()));
   const activeRun = visibleRuns.find((run) => run.id === openRun) ?? visibleRuns[0];
   const focus =
     filtered.find(
@@ -722,7 +724,7 @@ export function Dashboard() {
                     <div>
                       <div className="eyebrow">EXPERIMENTS</div>
                       <h1>실험실</h1>
-                      <p>Spring 탐색의 개선 전후 결과를 확인하는 공간이에요.</p>
+                      <p>워크플로우별 실험과 검수 결과를 확인해요.</p>
                     </div>
                     <label className="primary file-button">
                       <Plus size={16} /> 결과 가져오기
@@ -733,7 +735,15 @@ export function Dashboard() {
                       />
                     </label>
                   </div>
-                  <div className="panel lab-setup">
+                  <nav className="experiment-spaces" aria-label="워크플로우별 실험 공간">
+                    {experimentSpaces.map((space) => <button key={space.id} className={`experiment-space ${runSpace === space.id ? "selected" : ""}`} aria-pressed={runSpace === space.id} onClick={() => { setRunSpace(space.id); setRunLimit(20); setRunVersion("all"); setRunSearch(""); setOpenRun(""); setRunNotes(""); setReviewCase(""); }}>
+                      <span className="experiment-space-top"><strong>{space.label}</strong><span>{space.planned ? "준비 중" : runs.filter(run => belongsToSpace(run, space.id)).length}</span></span>
+                      <small>{space.description}</small>
+                    </button>)}
+                  </nav>
+                  {runSpace === "question" && <div className="lab-space-note"><strong>질문 이해 실험</strong><span>실험 결과와 검수 내역을 확인해요. 새 실험은 현재 로컬 실행기로 시작합니다.</span></div>}
+                  {(runSpace === "retrieval" || runSpace === "document") && <div className="lab-space-note"><strong>실험 기록 준비 중</strong><span>이 단계만 따로 실행하고 기록하는 기능은 아직 구현되지 않았어요.</span></div>}
+                  {(runSpace === "all" || runSpace === "existing") && <div className="panel lab-setup">
                     <div>
                       <strong>Spring 탐색 실험</strong>
                       <p>
@@ -757,8 +767,8 @@ export function Dashboard() {
                       <button className="primary" disabled={busy || !localAccess || (experimentTarget === "lab" && Boolean(selectedExperiment?.evaluationTime || selectedExperiment?.executionFixture))} onClick={runLocal}>{busy ? "실험 중..." : "선택한 사례 실행"}</button>
                     </div>
                     {selectedExperiment && <div className="lab-case-preview"><strong>{selectedExperiment.id}</strong><span>{selectedExperiment.question}</span><small>기대 동작: {selectedExperiment.expectedBehavior}</small></div>}
-                  </div>
-                  <div className="panel lab-setup">
+                  </div>}
+                  {(runSpace === "all" || runSpace === "verification") && <div className="panel lab-setup">
                     <div>
                       <strong>고정 문서 답변 검증 A/B</strong>
                       <p>같은 합성 문서로 답변 생성과 검증을 비교해요.</p>
@@ -776,16 +786,16 @@ export function Dashboard() {
                       </select>
                       <button className="primary" disabled={busy || !localAccess} onClick={runFixed}>{busy ? "실험 중..." : "고정 문서 실험 실행"}</button>
                     </div>
-                  </div>
+                  </div>}
                   <div className="run-results-layout">
                   <div className="panel">
                     <div className="panel-head">
                       <div>
                         <h2>
                           실험 결과{" "}
-                          <span className="count">{runs.length}</span>
+                          <span className="count">{visibleRuns.length}</span>
                         </h2>
-                        <p>로컬 실행과 가져온 실험 결과를 확인해요.</p>
+                        <p>{experimentSpaces.find(space => space.id === runSpace)?.description}</p>
                       </div>
                       <div className="run-list-tools"><label><span className="sr-only">실험 버전</span><select aria-label="실험 버전" value={runVersion} onChange={(e) => { setRunVersion(e.target.value); setRunLimit(20); }}><option value="all">모든 버전</option>{runVersions.map((v) => <option key={v} value={v}>{v.replace(":", " · v")}</option>)}</select></label><label><span className="sr-only">실험 검색</span><input type="search" placeholder="사례 번호로 검색" value={runSearch} onChange={(e) => { setRunSearch(e.target.value); setRunLimit(20); }} /></label><button className="outline" onClick={() => void load()} disabled={busy}>새로고침</button></div>
                       {datasets.some(
@@ -839,7 +849,7 @@ export function Dashboard() {
                         </button>
                       ))
                     ) : (
-                      <div className="empty">{runs.length ? "검색한 실험이 없어요." : "아직 실험이 없어요."}</div>
+                      <div className="empty">{runSpace === "retrieval" || runSpace === "document" ? "이 단계의 별도 실험은 아직 없어요." : runs.length ? "검색한 실험이 없어요." : "아직 실험이 없어요."}</div>
                     )}
                     {visibleRuns.length > runLimit && <button className="outline run-more" onClick={() => setRunLimit((n) => n + 20)}>결과 더 보기 ({runLimit} / {visibleRuns.length})</button>}
                   </div>

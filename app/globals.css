@@ -1096,3 +1096,18 @@ footer span {
 .run-more { display:block; margin:18px auto; }
 .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
 @media (max-width:720px) { .lab-case-preview { align-items:flex-start; flex-direction:column; } .lab-case-preview small { margin-left:0; max-width:none; } .run-list-tools { flex-wrap:wrap; } }
+
+/* Workflow navigation keeps each experiment's records and controls together. */
+.experiment-spaces { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin:0 0 16px; }
+.experiment-space { display:flex; min-width:0; flex-direction:column; gap:6px; padding:14px 15px; border:1px solid #e1e5eb; border-radius:10px; background:#fff; color:#30394a; text-align:left; cursor:pointer; transition:border-color .15s,background .15s; }
+.experiment-space:hover { border-color:#a9a2f8; background:#fafaff; }
+.experiment-space.selected { border-color:#6156e8; background:#f5f4ff; box-shadow:inset 0 0 0 1px #6156e8; }
+.experiment-space:focus-visible { outline:2px solid #6156e8; outline-offset:2px; }
+.experiment-space-top { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.experiment-space-top strong { font-size:14px; }
+.experiment-space-top > span { color:#6f7890; font-size:12px; font-weight:600; }
+.experiment-space small { color:#737f93; font-size:12px; line-height:1.4; }
+.lab-space-note { display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; padding:14px 16px; margin-bottom:16px; border-left:3px solid #756bec; background:#f5f4ff; color:#59627a; border-radius:4px; font-size:13px; }
+.lab-space-note strong { color:#312e81; }
+@media (max-width:850px) { .experiment-spaces { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media (max-width:420px) { .experiment-space { padding:12px; } }
