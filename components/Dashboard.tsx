@@ -144,6 +144,7 @@ export function Dashboard() {
     [runSearch, setRunSearch] = useState(""),
     [runVersion, setRunVersion] = useState("all"),
     [runSpace, setRunSpace] = useState<ExperimentSpace>("all"),
+    [runRevision, setRunRevision] = useState("all"),
     [runLimit, setRunLimit] = useState(20),
     [localAccess, setLocalAccess] = useState(false);
   const load = useCallback(async () => {
@@ -243,7 +244,8 @@ export function Dashboard() {
   );
   const selectedExperiment = experimentCases.find((c) => c.id === experimentCase);
   const runVersions = [...new Set(runs.map((run) => `${run.datasetId}:${run.datasetVersion}`))];
-  const visibleRuns = [...runs].reverse().filter((run) => belongsToSpace(run, runSpace) && (runVersion === "all" || `${run.datasetId}:${run.datasetVersion}` === runVersion) && `${run.name} ${run.results.map((r) => r.caseId).join(" ")}`.toLowerCase().includes(runSearch.toLowerCase()));
+  const runRevisions = [...new Set(runs.filter(run => belongsToSpace(run, runSpace) && run.experiment).map(run => run.experiment?.promptVersion).filter((version): version is string => Boolean(version)))].sort();
+  const visibleRuns = [...runs].reverse().filter((run) => belongsToSpace(run, runSpace) && (runRevision === "all" || run.experiment?.promptVersion === runRevision) && (runVersion === "all" || `${run.datasetId}:${run.datasetVersion}` === runVersion) && `${run.name} ${run.results.map((r) => r.caseId).join(" ")}`.toLowerCase().includes(runSearch.toLowerCase()));
   const activeRun = visibleRuns.find((run) => run.id === openRun) ?? visibleRuns[0];
   const focus =
     filtered.find(
@@ -736,7 +738,7 @@ export function Dashboard() {
                     </label>
                   </div>
                   <nav className="experiment-spaces" aria-label="워크플로우별 실험 공간">
-                    {experimentSpaces.map((space) => <button key={space.id} className={`experiment-space ${runSpace === space.id ? "selected" : ""}`} aria-pressed={runSpace === space.id} onClick={() => { setRunSpace(space.id); setRunLimit(20); setRunVersion("all"); setRunSearch(""); setOpenRun(""); setRunNotes(""); setReviewCase(""); }}>
+                    {experimentSpaces.map((space) => <button key={space.id} className={`experiment-space ${runSpace === space.id ? "selected" : ""}`} aria-pressed={runSpace === space.id} onClick={() => { setRunSpace(space.id); setRunLimit(20); setRunVersion("all"); setRunRevision("all"); setRunSearch(""); setOpenRun(""); setRunNotes(""); setReviewCase(""); }}>
                       <span className="experiment-space-top"><strong>{space.label}</strong><span>{space.planned ? "준비 중" : runs.filter(run => belongsToSpace(run, space.id)).length}</span></span>
                       <small>{space.description}</small>
                     </button>)}
@@ -797,7 +799,7 @@ export function Dashboard() {
                         </h2>
                         <p>{experimentSpaces.find(space => space.id === runSpace)?.description}</p>
                       </div>
-                      <div className="run-list-tools"><label><span className="sr-only">실험 버전</span><select aria-label="실험 버전" value={runVersion} onChange={(e) => { setRunVersion(e.target.value); setRunLimit(20); }}><option value="all">모든 버전</option>{runVersions.map((v) => <option key={v} value={v}>{v.replace(":", " · v")}</option>)}</select></label><label><span className="sr-only">실험 검색</span><input type="search" placeholder="사례 번호로 검색" value={runSearch} onChange={(e) => { setRunSearch(e.target.value); setRunLimit(20); }} /></label><button className="outline" onClick={() => void load()} disabled={busy}>새로고침</button></div>
+                      <div className="run-list-tools"><label><span className="sr-only">평가셋 버전</span><select aria-label="평가셋 버전" value={runVersion} onChange={(e) => { setRunVersion(e.target.value); setRunLimit(20); }}><option value="all">모든 평가셋</option>{runVersions.map((v) => <option key={v} value={v}>{v.replace(":", " · v")}</option>)}</select></label>{runRevisions.length > 0 && <label><span className="sr-only">실험 방식 버전</span><select aria-label="실험 방식 버전" value={runRevision} onChange={(e) => { setRunRevision(e.target.value); setRunLimit(20); }}><option value="all">모든 실험 방식</option>{runRevisions.map((version) => <option key={version} value={version}>{version}</option>)}</select></label>}<label><span className="sr-only">실험 검색</span><input type="search" placeholder="사례 번호로 검색" value={runSearch} onChange={(e) => { setRunSearch(e.target.value); setRunLimit(20); }} /></label><button className="outline" onClick={() => void load()} disabled={busy}>새로고침</button></div>
                       {datasets.some(
                         (d) =>
                           d.id === "knot-synthetic" &&

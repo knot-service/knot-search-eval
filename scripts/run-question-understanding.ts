@@ -4,14 +4,16 @@ import { mkdir, readFile, readdir, writeFile, unlink } from "node:fs/promises";
 import { resolve } from "node:path";
 import { z } from "zod";
 import { mutateState, readState } from "../lib/db";
-import { RunSchema } from "../lib/schema";
+import { DatasetSchema, RunSchema } from "../lib/schema";
+import { contentHash } from "../lib/state";
 
-const cases = ["S08-01", "S09-01", "S17-01", "S23-01", "S35-01", "S36-01", "S69-01", "S73-01", "S74-01"] as const;
+const cases = ["S08-01", "S09-01", "S17-01", "S23-01", "S35-01", "S36-01", "S69-01", "S73-01", "S74-01", "QX-01"] as const;
 const resultSchema = z.object({client:z.enum(["http","spring"]),mode:z.enum(["prompt","schema"]),model:z.string(),promptVersion:z.string(),status:z.enum(["completed","failed"]),calls:z.number().nullable(),durationMs:z.number().nonnegative(),output:z.unknown().optional(),error:z.string().optional(),usage:z.object({prompt_tokens:z.number().nullable().optional(),completion_tokens:z.number().nullable().optional()}).optional()});
 const pendingDir = resolve(process.cwd(), "../knot/backend/resume/search-improvement/question-understanding-runs");
 const executable = resolve(process.cwd(), "../knot-search-lab/experiments/question-understanding/build/install/question-understanding-experiment/bin/question-understanding-experiment");
 const envPath = resolve(process.cwd(), "../knot-search-lab/.env.search-local");
-const promptVersion = "question-understanding-v4";
+const promptVersion = "question-understanding-v7";
+const contractFixture = DatasetSchema.parse({id:"question-contract-fixtures",name:"질문 이해 계약 · 추가 합성 사례",version:"1.0",source:"synthetic",corpusHash:"question-contract-no-documents-v1",cases:[{id:"QX-01",scenario:"복합 질문",category:"질문 이해",question:"지난주 결제 회의의 담당자와 이번 달 로그인 회의의 결정 사항을 알려줘.",history:[],documents:[],expectedType:"answer",expectedBehavior:"결제 회의 담당자에는 지난주를, 로그인 회의 결정 사항에는 이번 달을 각각 적용한다.",expectedEvidenceIds:[],evaluationTime:"2026-10-29T03:00:00.000Z"}]});
 
 async function modelEnv(): Promise<NodeJS.ProcessEnv> {
   const content = await readFile(envPath, "utf8");
@@ -47,9 +49,16 @@ async function main() {
   const selected = process.argv[2] ?? "S08-01";
   const repeats = Number(process.argv[3] ?? "1");
   if (!(selected === "all" || cases.some(id => id === selected)) || !Number.isInteger(repeats) || repeats < 1 || repeats > 3) throw new Error("사용법: 사례 ID 또는 all, 반복 횟수 1~3");
-  const state = await readState();
-  const dataset = state.datasets.find(d => d.id === "knot-workspace-458" && d.version === "1.30" && d.locked);
-  if (!dataset?.corpusHash) throw new Error("잠긴 v1.30 평가셋과 문서 버전이 필요합니다.");
+  let state = await readState();
+  if (selected === "all" || selected === "QX-01") {
+    const existing = state.datasets.find(d => d.id === contractFixture.id && d.version === contractFixture.version);
+    if (!existing) {
+      await mutateState({type:"import_dataset",data:contractFixture});
+      state = await mutateState({type:"lock_dataset",id:contractFixture.id,version:contractFixture.version});
+    } else if (!existing.locked || existing.contentHash !== contentHash(contractFixture)) {
+      throw new Error("추가 합성 사례의 고정 버전이 일치하지 않습니다.");
+    }
+  }
   const env = await modelEnv();
   await mkdir(pendingDir,{recursive:true,mode:0o700});
   for (const file of (await readdir(pendingDir)).filter(name => name.endsWith(".json"))) {
@@ -63,6 +72,8 @@ async function main() {
     await unlink(path);
   }
   for (const caseId of (selected === "all" ? cases : [selected])) {
+    const dataset = state.datasets.find(d => caseId === "QX-01" ? d.id === contractFixture.id && d.version === contractFixture.version && d.locked : d.id === "knot-workspace-458" && d.version === "1.30" && d.locked);
+    if (!dataset?.corpusHash) throw new Error("잠긴 평가셋과 문서 버전이 필요합니다.");
     const item = dataset.cases.find(entry => entry.id === caseId);
     if (!item) throw new Error(`사례를 찾지 못했습니다: ${caseId}`);
     const input = {question:item.question,history:item.history,receivedAt:item.evaluationTime ?? "2026-10-29T03:00:00.000Z",timezone:"Asia/Seoul"};
