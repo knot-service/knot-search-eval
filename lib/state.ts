@@ -99,7 +99,7 @@ export function applyAction(state: DataState, input: unknown): DataState {
           ...(typeof v.stageId === "string" ? { stageId: v.stageId } : {}),
           outcome: v.outcome as "correct" | "incorrect" | "hold",
           notes: v.notes,
-          reviewer: "개인 평가자",
+          reviewer: "사람 검수 (실험실)",
           createdAt: new Date().toISOString(),
         },
       ],

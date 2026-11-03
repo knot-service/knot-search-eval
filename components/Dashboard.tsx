@@ -20,6 +20,7 @@ import type { DataState, EvalCase, Run } from "../lib/schema";
 import { sharedCaseReadiness } from "../lib/local-cases";
 import { latestWorkspaceDataset } from "../lib/latest-workspace-dataset";
 import { latestCaseReviews, summarizeDatasetReviews } from "../lib/review-summary";
+import { latestReviewsByProvenance } from "../lib/review-provenance";
 import { koreaTimeInText } from "../lib/korea-time";
 import { CaseSchema } from "../lib/schema";
 import { RunReviews } from "./RunReviews";
@@ -1200,20 +1201,26 @@ function Result({ result, candidateAvailable, experimentKind }: { result: Run["r
   );
 }
 
-function ExperimentStage({stage, reviews, busy, onReview}: {
+function ExperimentStage({stage, reviews, busy, onReview, separateProvenance}: {
   stage: NonNullable<Run["experiment"]>["stages"][number];
   reviews: DataState["reviews"];
   busy: boolean;
+  separateProvenance: boolean;
   onReview: (outcome: "correct" | "incorrect" | "hold", notes: string) => Promise<void>;
 }) {
   const [note, setNote] = useState("");
   const current = [...reviews].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+  const grouped = latestReviewsByProvenance(reviews);
   const status = {completed:"실행됨",failed:"실패",not_applicable:"해당 없음",not_run:"미실행"}[stage.status];
   return <section className="detail-block" aria-label={`${stage.label} 단계`}>
     <strong>{stage.label}</strong> <span className="muted">· {status} · {stage.durationMs === null ? "시간 미수집" : `${stage.durationMs.toLocaleString("ko-KR")}ms`}</span>
     <pre style={{whiteSpace:"pre-wrap",overflowWrap:"anywhere"}}>{stage.result}</pre>
     <small>입력 토큰 {stage.inputTokens ?? "미수집"} · 출력 토큰 {stage.outputTokens ?? "미수집"}</small>
-    <p>품질: {current ? `${labels[current.outcome]} · ${current.reviewer} · ${new Date(current.createdAt).toLocaleString("ko-KR", {timeZone:"Asia/Seoul"})}` : stage.status === "not_applicable" ? "해당 없음" : "미검수"}</p>
+    {separateProvenance ? <div>
+      <p>AI 검수: {grouped.ai ? labels[grouped.ai.outcome] : "미검수"}</p>
+      <p>사람 검수: {grouped.human ? labels[grouped.human.outcome] : "미검수"}</p>
+      {grouped.unknown && <p>출처 미확인 검수: {labels[grouped.unknown.outcome]} · {grouped.unknown.reviewer}</p>}
+    </div> : <p>품질: {current ? `${labels[current.outcome]} · ${current.reviewer} · ${new Date(current.createdAt).toLocaleString("ko-KR", {timeZone:"Asia/Seoul"})}` : stage.status === "not_applicable" ? "해당 없음" : "미검수"}</p>}
     {reviews.length > 0 && <details><summary>검수 이력 {reviews.length}건</summary>{[...reviews].sort((a,b) => b.createdAt.localeCompare(a.createdAt)).map((review) => <p key={review.id}>{labels[review.outcome]} · {review.reviewer} · {new Date(review.createdAt).toLocaleString("ko-KR",{timeZone:"Asia/Seoul"})}{review.notes ? ` · ${review.notes}` : ""}</p>)}</details>}
     {stage.status === "completed" && <><textarea aria-label={`${stage.label} 품질 검수 의견`} value={note} onChange={(event) => setNote(event.target.value)} placeholder="이 단계의 품질 판단 근거" /><div className="review-actions">{(["correct","incorrect","hold"] as const).map((outcome) => <button className="outline" disabled={busy} key={outcome} onClick={() => void onReview(outcome,note)}>{labels[outcome]}</button>)}</div></>}
   </section>;
@@ -1363,7 +1370,7 @@ function RunDetail({
             {run.experiment && <div className="detail-block">
               <label>단계별 결과·시간·품질</label>
               <p className="muted">{run.experiment.kind === "question_understanding" ? `질문 이해 ${run.experiment.variant === "A" ? "HTTP" : "Spring AI"}` : `검증 ${run.experiment.variant}`} · 고정 입력 {run.experiment.inputHash.slice(0, 12)} · 모델의 판정과 사람 검수는 별개예요.</p>
-              {run.experiment.stages.map((stage) => <ExperimentStage key={stage.id} stage={stage} reviews={reviews.filter((review) => review.runId === run.id && review.stageId === stage.id)} busy={busy} onReview={(outcome, stageNotes) => onStageReview(stage.id, outcome, stageNotes)} />)}
+              {run.experiment.stages.map((stage) => <ExperimentStage key={stage.id} stage={stage} reviews={reviews.filter((review) => review.runId === run.id && review.stageId === stage.id)} busy={busy} separateProvenance={run.experiment?.kind === "question_understanding"} onReview={(outcome, stageNotes) => onStageReview(stage.id, outcome, stageNotes)} />)}
             </div>}
             <div className="detail-block">
               <label>{run.experiment?.kind === "question_understanding" ? "참고: 전체 답변의 기대 동작" : "기대 동작"}</label>

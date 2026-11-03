@@ -2,6 +2,7 @@
 
 import { Activity, Check, ChevronDown, Circle, Clock3, Minus, X } from "lucide-react";
 import type { DataState, Review, Run } from "../lib/schema";
+import { latestReviewsByProvenance } from "../lib/review-provenance";
 import { Badge } from "./ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
 
@@ -58,7 +59,7 @@ function Metric({ title, icon: Icon, values }: { title: string; icon: typeof Clo
   </div>;
 }
 
-function TimelineStep({ stage, review, index, last }: { stage: Stage; review: Review | undefined; index: number; last: boolean }) {
+function TimelineStep({ stage, review, split, index, last }: { stage: Stage; review: Review | undefined; split?: ReturnType<typeof latestReviewsByProvenance>; index: number; last: boolean }) {
   const info = statusInfo[stage.status];
   const assessment = quality(review, stage.status);
   const Icon = stage.status === "completed" ? Check : stage.status === "failed" ? X : stage.status === "not_run" ? Minus : Circle;
@@ -75,14 +76,14 @@ function TimelineStep({ stage, review, index, last }: { stage: Stage; review: Re
           <div className="tw:mt-2 tw:flex tw:flex-wrap tw:items-center tw:gap-1.5">
             <Badge variant={info.variant}>{info.label}</Badge>
             <Badge variant={stage.durationMs === null ? "muted" : "info"}><Clock3 size={12} aria-hidden="true" />{duration(stage.durationMs)}</Badge>
-            <Badge variant={assessment.variant}>{assessment.label}</Badge>
+            {split ? <><Badge variant={quality(split.ai,stage.status).variant}>AI · {quality(split.ai,stage.status).label}</Badge><Badge variant={quality(split.human,stage.status).variant}>사람 · {quality(split.human,stage.status).label}</Badge>{split.unknown && <Badge variant="muted">출처 미확인 · {qualityInfo[split.unknown.outcome].label}</Badge>}</> : <Badge variant={assessment.variant}>{assessment.label}</Badge>}
           </div>
-          {review && <div className="tw:mt-1.5 tw:break-words tw:text-xs tw:text-slate-500">{review.reviewer}</div>}
+          {review && !split && <div className="tw:mt-1.5 tw:break-words tw:text-xs tw:text-slate-500">{review.reviewer}</div>}
           <CollapsibleContent className="tw:mt-3 tw:overflow-hidden tw:rounded-lg tw:bg-slate-50 tw:p-3 tw:text-xs tw:text-slate-600">
             <div className="tw:font-semibold tw:text-slate-700">단계 결과</div>
             <pre className="tw:mt-2 tw:max-h-64 tw:overflow-auto tw:whitespace-pre-wrap tw:break-words tw:font-sans tw:leading-relaxed">{stage.result || "기록된 결과 없음"}</pre>
             <div className="tw:mt-3 tw:flex tw:flex-wrap tw:gap-x-4 tw:gap-y-1 tw:border-0 tw:border-t tw:border-solid tw:border-slate-200 tw:pt-3"><span>입력 토큰: {stage.inputTokens === null ? "미수집" : stage.inputTokens.toLocaleString("ko-KR")}</span><span>출력 토큰: {stage.outputTokens === null ? "미수집" : stage.outputTokens.toLocaleString("ko-KR")}</span></div>
-            {review && <div className="tw:mt-3 tw:break-words"><strong>검수 · {review.reviewer}</strong><p>{review.notes || "검수 의견 없음"}</p></div>}
+            {(split ? [split.ai,split.human,split.unknown].filter((item): item is Review => Boolean(item)) : review ? [review] : []).map(item => <div key={item.id} className="tw:mt-3 tw:break-words"><strong>검수 · {item.reviewer}</strong><p>{item.notes || "검수 의견 없음"}</p></div>)}
           </CollapsibleContent>
         </Collapsible>
       </div>
@@ -98,11 +99,11 @@ export function ProcessComparison({ runs, reviews }: { runs: [Run, Run]; reviews
       <div className="tw:mt-5 tw:grid tw:grid-cols-1 tw:gap-3 tw:lg:grid-cols-3">
         <Metric title="총 소요 시간" icon={Clock3} values={values.map(({run,name}) => ({name, value:run.results.length === 1 ? duration(run.results[0].latencyMs) : "시간 미수집", detail:run.results.length === 1 ? "사례 응답 시간" : "단일 사례가 아니에요"}))} />
         <Metric title="기록된 모델 호출" icon={Activity} values={values.map(({run,name}) => ({name, ...modelCallMetric(run)}))} />
-        <Metric title="최종 검수" icon={Check} values={values.map(({run,name}) => { const review = latestReview(reviews,run); return {name,value:review ? qualityInfo[review.outcome].label : "미검수",detail:review?.reviewer}; })} />
+        <Metric title="최종 검수" icon={Check} values={values.map(({run,name}) => { if (run.experiment?.kind === "question_understanding") { const group = latestReviewsByProvenance(reviews.filter(review => review.runId === run.id && !review.stageId)); return {name,value:`AI ${group.ai ? qualityInfo[group.ai.outcome].label : "미검수"} · 사람 ${group.human ? qualityInfo[group.human.outcome].label : "미검수"}`,detail:group.unknown ? "출처 미확인 검수도 있어요" : undefined}; } const review = latestReview(reviews,run); return {name,value:review ? qualityInfo[review.outcome].label : "미검수",detail:review?.reviewer}; })} />
       </div>
     </div>
     <div className="tw:grid tw:grid-cols-1 tw:gap-px tw:bg-slate-200 tw:lg:grid-cols-2">
-      {values.map(({run,name}) => <section key={run.id} aria-label={`${name} 실행 순서`} className="tw:min-w-0 tw:bg-white tw:px-5 tw:py-5 tw:sm:px-6"><div className="tw:mb-5 tw:flex tw:items-start tw:justify-between tw:gap-3"><div><h3 className="tw:m-0 tw:text-base tw:font-bold tw:text-slate-900">{name}</h3><div className="tw:mt-1 tw:break-all tw:text-xs tw:text-slate-500">{run.experiment?.promptVersion ?? "단계 기록 없음"}</div></div><Badge variant={run.status === "completed" ? "success" : "danger"}>{run.status === "completed" ? "실행 완료" : run.status === "failed" ? "실행 실패" : "실행 취소"}</Badge></div>{run.experiment ? <ol className="tw:m-0 tw:p-0">{run.experiment.stages.map((stage,index,stages) => <TimelineStep key={stage.id} stage={stage} index={index} last={index === stages.length - 1} review={latestReview(reviews,run,stage.id)} />)}</ol> : <p className="tw:text-sm tw:text-slate-500">이 실행에는 단계별 기록이 없어요.</p>}</section>)}
+      {values.map(({run,name}) => <section key={run.id} aria-label={`${name} 실행 순서`} className="tw:min-w-0 tw:bg-white tw:px-5 tw:py-5 tw:sm:px-6"><div className="tw:mb-5 tw:flex tw:items-start tw:justify-between tw:gap-3"><div><h3 className="tw:m-0 tw:text-base tw:font-bold tw:text-slate-900">{name}</h3><div className="tw:mt-1 tw:break-all tw:text-xs tw:text-slate-500">{run.experiment?.promptVersion ?? "단계 기록 없음"}</div></div><Badge variant={run.status === "completed" ? "success" : "danger"}>{run.status === "completed" ? "실행 완료" : run.status === "failed" ? "실행 실패" : "실행 취소"}</Badge></div>{run.experiment ? <ol className="tw:m-0 tw:p-0">{run.experiment.stages.map((stage,index,stages) => <TimelineStep key={stage.id} stage={stage} index={index} last={index === stages.length - 1} review={latestReview(reviews,run,stage.id)} split={run.experiment?.kind === "question_understanding" ? latestReviewsByProvenance(reviews.filter(review => review.runId === run.id && review.stageId === stage.id)) : undefined} />)}</ol> : <p className="tw:text-sm tw:text-slate-500">이 실행에는 단계별 기록이 없어요.</p>}</section>)}
     </div>
   </section>;
 }
