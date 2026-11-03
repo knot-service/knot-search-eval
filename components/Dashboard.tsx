@@ -17,6 +17,12 @@ import {
   Menu,
 } from "lucide-react";
 import type { DataState, EvalCase, Run } from "../lib/schema";
+import { sharedCaseReadiness } from "../lib/local-cases";
+import { latestWorkspaceDataset } from "../lib/latest-workspace-dataset";
+import { latestCaseReviews, summarizeDatasetReviews } from "../lib/review-summary";
+import { koreaTimeInText } from "../lib/korea-time";
+import { CaseSchema } from "../lib/schema";
+import { RunReviews } from "./RunReviews";
 import sampleDataset from "../data/synthetic-dataset.json";
 import fullDataset from "../data/synthetic-full-dataset.json";
 import sampleA from "../data/synthetic-run-a.json";
@@ -36,6 +42,8 @@ const labels: Record<string, string> = {
   deny: "접근 제한",
   partial: "부분 결과",
   recovery: "장애 복구",
+  conversation: "일반 대화",
+  unsupported: "지원 범위 밖",
   correct: "적합",
   incorrect: "부적합",
   hold: "판단 보류",
@@ -43,6 +51,15 @@ const labels: Record<string, string> = {
   failed: "실패",
   timeout: "시간 초과",
   cancelled: "취소",
+};
+function modelLabel(model: string) {
+  return model.includes("(LM Studio)")
+    ? model.replace("(LM Studio)", "(서빙 기록 확인 필요)")
+    : model;
+}
+const stageLabels: Record<string, string> = {
+  queue_wait:"작업 대기", intent_classification:"질문 의도 분류", document_retrieval:"문서 검색",
+  answer_generation:"답변 생성", llm_first_content:"모델 첫 내용까지", content_persistence:"답변 내용 저장 누적", worker_total:"백엔드 작업 전체",
 };
 export function Login() {
   const [password, setPassword] = useState(""),
@@ -116,7 +133,15 @@ export function Dashboard() {
     [showMenu, setShowMenu] = useState(false),
     [openRun, setOpenRun] = useState(""),
     [reviewCase, setReviewCase] = useState(""),
-    [runNotes, setRunNotes] = useState("");
+    [runNotes, setRunNotes] = useState(""),
+    [experimentCase, setExperimentCase] = useState("S72-01"),
+    [experimentTarget, setExperimentTarget] = useState("baseline"),
+    [fixedCase, setFixedCase] = useState("S14-01"),
+    [fixedVariant, setFixedVariant] = useState("A"),
+    [runSearch, setRunSearch] = useState(""),
+    [runVersion, setRunVersion] = useState("all"),
+    [runLimit, setRunLimit] = useState(20),
+    [localAccess, setLocalAccess] = useState(false);
   const load = useCallback(async () => {
     try {
       const r = await fetch("/api/state", { cache: "no-store" });
@@ -133,6 +158,7 @@ export function Dashboard() {
     }
   }, []);
   useEffect(() => {
+    setLocalAccess(location.protocol === "http:" && ["localhost", "127.0.0.1"].includes(location.hostname));
     void load();
   }, [load]);
   async function action(data: unknown) {
@@ -175,6 +201,14 @@ export function Dashboard() {
   const datasets = state?.datasets ?? [],
     runs = state?.runs ?? [],
     reviews = state?.reviews ?? [];
+  const meetingDataset = latestWorkspaceDataset(datasets);
+  const reviewSummary = summarizeDatasetReviews(meetingDataset, reviews);
+  const displayDatasets = meetingDataset ? [meetingDataset] : [];
+  const experimentCases = useMemo(() => (meetingDataset?.cases ?? fullDataset.cases).map((raw) => CaseSchema.parse(raw)), [meetingDataset]);
+  const experimentCategories = [...new Set(experimentCases.map((c) => c.category))];
+  const caseReviews = meetingDataset ? latestCaseReviews(meetingDataset, reviews) : new Map();
+  const readinessFor = (c: EvalCase) => sharedCaseReadiness(c,new Date(),caseReviews.get(c.id)?.outcome);
+  const readyCaseCount = experimentCases.filter((c) => readinessFor(c).ready).length;
   const allCases = useMemo(
     () =>
       datasets.flatMap((d) =>
@@ -189,9 +223,11 @@ export function Dashboard() {
   );
   const activeDataset =
     datasetFilter === "auto"
-      ? datasets.length
-        ? `${datasets[datasets.length - 1].id}:${datasets[datasets.length - 1].version}`
-        : ""
+      ? meetingDataset
+        ? `${meetingDataset.id}:${meetingDataset.version}`
+        : datasets.length
+          ? `${datasets[datasets.length - 1].id}:${datasets[datasets.length - 1].version}`
+          : ""
       : datasetFilter;
   const filtered = allCases.filter(
     (c) =>
@@ -201,13 +237,14 @@ export function Dashboard() {
         .toLowerCase()
         .includes(search.toLowerCase()),
   );
+  const selectedExperiment = experimentCases.find((c) => c.id === experimentCase);
+  const runVersions = [...new Set(runs.map((run) => `${run.datasetId}:${run.datasetVersion}`))];
+  const visibleRuns = [...runs].reverse().filter((run) => (runVersion === "all" || `${run.datasetId}:${run.datasetVersion}` === runVersion) && `${run.name} ${run.results.map((r) => r.caseId).join(" ")}`.toLowerCase().includes(runSearch.toLowerCase()));
+  const activeRun = visibleRuns.find((run) => run.id === openRun) ?? visibleRuns[0];
   const focus =
     filtered.find(
       (c) => `${c.datasetId}:${c.datasetVersion}:${c.id}` === selected,
     ) ?? filtered[0];
-  const reviewed = new Set(
-    reviews.map((r) => `${r.datasetId}:${r.datasetVersion}:${r.caseId}`),
-  ).size;
   const runA = runs.find((r) => r.id === left) ?? runs[0],
     runB = runs.find((r) => r.id === right) ?? runs[1];
   async function seed() {
@@ -217,6 +254,28 @@ export function Dashboard() {
   async function sampleRuns() {
     if (!(await action({ type: "import_run", data: sampleA }))) return;
     await action({ type: "import_run", data: sampleB });
+  }
+  async function runLocal() {
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch("/api/local-experiment", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({caseId: experimentCase,dataset: meetingDataset ? "meetings" : "initial",target: experimentTarget}) });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
+      setState(data);
+    } catch (e) { setError(e instanceof Error ? e.message : "실험 실패"); }
+    finally { setBusy(false); }
+  }
+  async function runFixed() {
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch("/api/fixed-verification", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({caseId:fixedCase,variant:fixedVariant})});
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
+      setState(data);
+    } catch (e) { setError(e instanceof Error ? e.message : "실험 실패"); }
+    finally { setBusy(false); }
   }
   async function logout() {
     await fetch("/api/logout", { method: "POST" });
@@ -335,18 +394,18 @@ export function Dashboard() {
                   <div className="stats">
                     <Stat
                       label="평가셋"
-                      value={String(datasets.length).padStart(2, "0")}
+                      value={String(displayDatasets.length).padStart(2, "0")}
                       sub="등록된 버전"
                     />
                     <Stat
                       label="평가 사례"
-                      value={String(allCases.length).padStart(2, "0")}
+                      value={String(meetingDataset?.cases.length ?? 0).padStart(2, "0")}
                       sub="전체 시나리오"
                     />
                     <Stat
-                      label="검수 완료"
-                      value={`${reviewed} / ${allCases.length}`}
-                      sub="검수 이력 기준"
+                      label="판정 기록"
+                      value={`${reviewSummary.total - reviewSummary.unreviewed} / ${reviewSummary.total}`}
+                      sub="적합·부적합·보류 포함"
                     />
                     <Stat
                       label="실험"
@@ -368,8 +427,8 @@ export function Dashboard() {
                           전체 보기 <ArrowUpRight size={14} />
                         </button>
                       </div>
-                      {datasets.length ? (
-                        datasets.map((d) => (
+                      {displayDatasets.length ? (
+                        displayDatasets.map((d) => (
                           <button
                             className="dataset-row"
                             key={`${d.id}-${d.version}`}
@@ -422,9 +481,9 @@ export function Dashboard() {
                             <div className="run-row" key={r.id}>
                               <span className="run-dot" />
                               <span className="row-main">
-                                <strong>{r.name}</strong>
+                                <strong>{koreaTimeInText(r.name)}</strong>
                                 <small>
-                                  {r.strategy} · {r.results.length}개 결과
+                                  {koreaTimeInText(r.strategy)} · {r.results.length}개 결과
                                 </small>
                               </span>
                               <span className="badge neutral">
@@ -460,7 +519,7 @@ export function Dashboard() {
                     <div>
                       <div className="eyebrow">DATASETS</div>
                       <h1>평가셋</h1>
-                      <p>질문, 문서와 기대 동작을 살펴보고 검수해요.</p>
+                      <p>워크스페이스 문서를 기준으로 질문과 근거 후보를 검수해요.</p>
                     </div>
                     <label className="primary file-button">
                       <Plus size={16} /> JSON 가져오기
@@ -471,22 +530,25 @@ export function Dashboard() {
                       />
                     </label>
                   </div>
+                  {meetingDataset && (
+                    <section className="review-summary" aria-label="평가셋 검수 현황">
+                      <div className="review-summary-heading">
+                        <div>
+                          <h2>검수 현황</h2>
+                          <p>현재 평가셋 v{meetingDataset.version}의 사례별 최근 판정이에요.</p>
+                        </div>
+                        <span className="muted">전체 {reviewSummary.total}개 · 실행 가능 {readyCaseCount}개</span>
+                      </div>
+                      <div className="stats">
+                        <Stat label="적합" value={String(reviewSummary.correct)} sub="사례 구성 검수" />
+                        <Stat label="판단 보류" value={String(reviewSummary.hold)} sub="추가 확인 필요" />
+                        <Stat label="부적합" value={String(reviewSummary.incorrect)} sub="수정 필요" />
+                        <Stat label="미검수" value={String(reviewSummary.unreviewed)} sub="판정 전" />
+                      </div>
+                      <p className="review-summary-note">검수 판정에는 AI 검토와 이전 버전에서 이관한 결과가 포함돼요. 실행 가능 여부나 탐색 정답률과는 달라요.</p>
+                    </section>
+                  )}
                   <div className="toolbar">
-                    {!datasets.some(
-                      (d) =>
-                        d.id === fullDataset.id &&
-                        d.version === fullDataset.version,
-                    ) && (
-                      <button
-                        className="outline"
-                        disabled={busy}
-                        onClick={() =>
-                          action({ type: "import_dataset", data: fullDataset })
-                        }
-                      >
-                        전체 시나리오 초안 추가
-                      </button>
-                    )}
                     <div className="search">
                       <Search size={16} />
                       <input
@@ -500,8 +562,7 @@ export function Dashboard() {
                       value={activeDataset}
                       onChange={(e) => setDatasetFilter(e.target.value)}
                     >
-                      <option value="">전체 평가셋</option>
-                      {datasets.map((d) => (
+                      {displayDatasets.map((d) => (
                         <option
                           key={`${d.id}:${d.version}`}
                           value={`${d.id}:${d.version}`}
@@ -512,7 +573,7 @@ export function Dashboard() {
                     </select>
                     <span className="muted">{filtered.length}개 사례</span>
                   </div>
-                  {!datasets.length ? (
+                  {!displayDatasets.length ? (
                     <div className="panel empty">
                       등록된 평가셋이 없어요.
                       <button
@@ -526,7 +587,7 @@ export function Dashboard() {
                   ) : (
                     <>
                       <div className="dataset-bar">
-                        {datasets.map((d) => (
+                        {displayDatasets.map((d) => (
                           <div key={d.id + d.version}>
                             <strong>{d.name}</strong>
                             <span className="badge">v{d.version}</span>
@@ -561,7 +622,7 @@ export function Dashboard() {
                               <p>사례를 선택해 기대 동작을 확인하세요.</p>
                             </div>
                           </div>
-                          {datasets.flatMap((dataset) => {
+                          {displayDatasets.flatMap((dataset) => {
                             const items = filtered.filter(
                               (c) =>
                                 c.datasetId === dataset.id &&
@@ -588,13 +649,7 @@ export function Dashboard() {
                                   </div>
                                   {cases.map((c) => {
                                     const key = `${c.datasetId}:${c.datasetVersion}:${c.id}`;
-                                    const review = reviews
-                                      .filter(
-                                        (r) =>
-                                          `${r.datasetId}:${r.datasetVersion}:${r.caseId}` ===
-                                          key,
-                                      )
-                                      .at(-1);
+                                    const review = latestCaseReviews({id:c.datasetId,version:c.datasetVersion}, reviews).get(c.id);
                                     return (
                                       <button
                                         key={key}
@@ -680,27 +735,57 @@ export function Dashboard() {
                     <div>
                       <strong>Spring 탐색 실험</strong>
                       <p>
-                        검수한 평가셋과 격리된 합성 문서로 같은 질문을 다시
-                        실행해 결과를 비교합니다.
+                        하나의 합성 워크스페이스에 질문하고 실행 결과를 비교합니다.
                       </p>
                       <small>
-                        실행기와 평가 전용 DB 연결 준비 중 · 아직 실제 실험을
-                        시작할 수 없어요.
+                        {localAccess ? "워크스페이스 458의 문서 기준이에요. 검수된 사례만 실행할 수 있어요." : "로컬과 같은 평가셋과 기록을 볼 수 있어요. 실험 실행은 로컬에서 해주세요."}
                       </small>
                     </div>
-                    <button className="outline" disabled>
-                      실험 준비 중
-                    </button>
+                    <div className="lab-controls">
+                      <label htmlFor="experiment-target">실행 대상</label>
+                      <select id="experiment-target" value={experimentTarget} onChange={(e) => setExperimentTarget(e.target.value)} disabled={busy || !localAccess}>
+                        <option value="baseline">기존 평가 서버</option>
+                        <option value="lab">knot-search-lab</option>
+                      </select>
+                      {experimentTarget === "lab" && <small>시각 고정·특수 실행 조건 사례는 준비 후 지원합니다.</small>}
+                      <label htmlFor="experiment-case">실행할 사례</label>
+                      <select id="experiment-case" value={experimentCase} onChange={(e) => setExperimentCase(e.target.value)} disabled={busy}>
+                        {experimentCategories.map((category) => <optgroup label={category} key={category}>{experimentCases.filter((c) => c.category === category).map((c) => { const ready=readinessFor(c); const unsupported=experimentTarget === "lab" && Boolean(c.evaluationTime || c.executionFixture); return <option key={c.id} value={c.id} disabled={!ready.ready || unsupported}>{c.id} · {c.question}{!ready.ready ? ` · ${ready.reason}` : unsupported ? " · 실험실 조건 준비 중" : ""}</option>; })}</optgroup>)}
+                      </select>
+                      <button className="primary" disabled={busy || !localAccess || (experimentTarget === "lab" && Boolean(selectedExperiment?.evaluationTime || selectedExperiment?.executionFixture))} onClick={runLocal}>{busy ? "실험 중..." : "선택한 사례 실행"}</button>
+                    </div>
+                    {selectedExperiment && <div className="lab-case-preview"><strong>{selectedExperiment.id}</strong><span>{selectedExperiment.question}</span><small>기대 동작: {selectedExperiment.expectedBehavior}</small></div>}
                   </div>
+                  <div className="panel lab-setup">
+                    <div>
+                      <strong>고정 문서 답변 검증 A/B</strong>
+                      <p>같은 합성 문서로 답변 생성과 검증을 비교해요.</p>
+                      <small>검색은 실행하지 않아요. 모델 의견과 사람 검수를 따로 기록합니다.</small>
+                    </div>
+                    <div className="lab-controls">
+                      <label htmlFor="fixed-case">비교 사례</label>
+                      <select id="fixed-case" value={fixedCase} onChange={(e) => setFixedCase(e.target.value)} disabled={busy || !localAccess}>
+                        {["S14-01", "S19-01", "S29-01", "S69-01", "S71-01"].map((id) => <option key={id} value={id}>{id}</option>)}
+                      </select>
+                      <label htmlFor="fixed-variant">검증 방식</label>
+                      <select id="fixed-variant" value={fixedVariant} onChange={(e) => setFixedVariant(e.target.value)} disabled={busy || !localAccess}>
+                        <option value="A">A · 생성과 자체 점검</option>
+                        <option value="B">B · 생성 후 별도 대조</option>
+                      </select>
+                      <button className="primary" disabled={busy || !localAccess} onClick={runFixed}>{busy ? "실험 중..." : "고정 문서 실험 실행"}</button>
+                    </div>
+                  </div>
+                  <div className="run-results-layout">
                   <div className="panel">
                     <div className="panel-head">
                       <div>
                         <h2>
-                          가져온 실험{" "}
+                          실험 결과{" "}
                           <span className="count">{runs.length}</span>
                         </h2>
-                        <p>이 화면에서 실험을 직접 실행하지 않아요.</p>
+                        <p>로컬 실행과 가져온 실험 결과를 확인해요.</p>
                       </div>
+                      <div className="run-list-tools"><label><span className="sr-only">실험 버전</span><select aria-label="실험 버전" value={runVersion} onChange={(e) => { setRunVersion(e.target.value); setRunLimit(20); }}><option value="all">모든 버전</option>{runVersions.map((v) => <option key={v} value={v}>{v.replace(":", " · v")}</option>)}</select></label><label><span className="sr-only">실험 검색</span><input type="search" placeholder="사례 번호로 검색" value={runSearch} onChange={(e) => { setRunSearch(e.target.value); setRunLimit(20); }} /></label><button className="outline" onClick={() => void load()} disabled={busy}>새로고침</button></div>
                       {datasets.some(
                         (d) =>
                           d.id === "knot-synthetic" &&
@@ -717,24 +802,29 @@ export function Dashboard() {
                           </button>
                         )}
                     </div>
-                    {runs.length ? (
-                      runs.map((r) => (
+                    {visibleRuns.length ? (
+                      visibleRuns.slice(0, runLimit).map((r) => (
                         <button
-                          className="experiment"
+                          className={`experiment ${activeRun?.id === r.id ? "selected" : ""}`}
                           key={r.id}
+                          aria-pressed={activeRun?.id === r.id}
                           onClick={() => {
                             setOpenRun(r.id);
                             setReviewCase("");
+                            setRunNotes("");
+                            if (window.matchMedia("(max-width: 900px)").matches) {
+                              requestAnimationFrame(() => document.getElementById("run-detail")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+                            }
                           }}
                         >
                           <span className="file-icon">
                             <FlaskConical size={18} />
                           </span>
                           <div className="row-main">
-                            <strong>{r.name}</strong>
+                            <strong>{koreaTimeInText(r.name)}</strong>
                             <small>
                               {r.datasetId} v{r.datasetVersion} ·{" "}
-                              {r.environment} · {r.model}
+                              {r.environment} · {modelLabel(r.model)}
                             </small>
                           </div>
                           <span className="muted">
@@ -747,15 +837,13 @@ export function Dashboard() {
                         </button>
                       ))
                     ) : (
-                      <div className="empty">
-                        아직 실험이 없어요. 평가셋을 잠근 뒤 결과 JSON을
-                        가져오세요.
-                      </div>
+                      <div className="empty">{runs.length ? "검색한 실험이 없어요." : "아직 실험이 없어요."}</div>
                     )}
+                    {visibleRuns.length > runLimit && <button className="outline run-more" onClick={() => setRunLimit((n) => n + 20)}>결과 더 보기 ({runLimit} / {visibleRuns.length})</button>}
                   </div>
-                  {openRun && runs.find((r) => r.id === openRun) && (
+                  {activeRun && (
                     <RunDetail
-                      run={runs.find((r) => r.id === openRun)!}
+                      run={activeRun}
                       cases={allCases}
                       reviews={reviews}
                       selected={reviewCase}
@@ -763,8 +851,16 @@ export function Dashboard() {
                       notes={runNotes}
                       setNotes={setRunNotes}
                       busy={busy}
+                      onStageReview={async (stageId, outcome, stageNotes) => { await action({type:"review",datasetId:activeRun.datasetId,datasetVersion:activeRun.datasetVersion,caseId:activeRun.results[0]?.caseId,runId:activeRun.id,stageId,outcome,notes:stageNotes}); }}
+                      onCompare={() => {
+                        const current = activeRun;
+                        if (!current) return;
+                        const previous = [...runs].reverse().find((x) => x.id !== current.id && x.datasetId === current.datasetId && x.datasetVersion === current.datasetVersion && x.corpusHash === current.corpusHash && x.startedAt < current.startedAt && x.results.some((result) => current.results.some((item) => item.caseId === result.caseId)) && (!current.experiment && !x.experiment || Boolean(current.experiment && x.experiment && current.experiment.inputHash === x.experiment.inputHash && current.experiment.promptVersion === x.experiment.promptVersion && current.model === x.model)));
+                        if (!previous) { setError("같은 조건의 이전 결과가 없어요. 이 사례를 다시 실행해 주세요."); return; }
+                        setLeft(previous.id); setRight(current.id); go("compare");
+                      }}
                       onReview={async (outcome) => {
-                        const r = runs.find((x) => x.id === openRun)!;
+                        const r = activeRun;
                         if (
                           await action({
                             type: "review",
@@ -780,6 +876,7 @@ export function Dashboard() {
                       }}
                     />
                   )}
+                  </div>
                 </>
               )}
               {page === "compare" && (
@@ -800,7 +897,7 @@ export function Dashboard() {
                       >
                         {runs.map((r) => (
                           <option key={r.id} value={r.id}>
-                            {r.name}
+                            {koreaTimeInText(r.name)}
                           </option>
                         ))}
                       </select>
@@ -814,14 +911,14 @@ export function Dashboard() {
                       >
                         {runs.map((r) => (
                           <option key={r.id} value={r.id}>
-                            {r.name}
+                            {koreaTimeInText(r.name)}
                           </option>
                         ))}
                       </select>
                     </label>
                   </div>
                   {runA && runB ? (
-                    <Comparison a={runA} b={runB} cases={allCases} />
+                    <Comparison a={runA} b={runB} cases={allCases} reviews={reviews} />
                   ) : (
                     <div className="panel empty">
                       비교하려면 실험 결과 2개를 가져오세요.
@@ -956,7 +1053,10 @@ function CaseDetail({
           item.documents.map((d) => (
             <div className="document" key={d.id}>
               <strong>{d.title}</strong>
-              <small>{d.id}</small>
+              <small>{d.id}{d.id.includes("-extra-") ? " · 관련 없는 문서" : ""}{d.fixtureStatus ? (d.fixtureStatus === "automatic_pass" ? " · 생성 모델의 자동 검토 통과, 사람 검수 전" : " · 내용 검수 필요") : ""}</small>
+              {d.summary && <small>요약: {d.summary}</small>}
+              {d.fixtureSource && <small>합성 원문 기준: {d.fixtureSource}</small>}
+              {d.fixtureReason && <small>자동 검토: {d.fixtureReason}</small>}
               <small>
                 {d.workspaceId && `Workspace: ${d.workspaceId} · `}
                 {d.accessible === false ? "접근 불가" : "접근 가능"}
@@ -967,10 +1067,10 @@ function CaseDetail({
             </div>
           ))
         ) : (
-          <p className="muted">접근 가능한 문서가 없어요.</p>
+          <p className="muted">연결된 근거 후보가 없어요. 워크스페이스의 다른 문서도 확인해야 해요.</p>
         )}
         <p className="muted evidence">
-          기대 근거: {item.expectedEvidenceIds.join(", ") || "없음"}
+          {latestCaseReviews({id:item.datasetId,version:item.datasetVersion}, reviews).get(item.id)?.outcome === "correct" ? "검수된 기대 근거" : "기대 근거 후보 (검수 필요)"}: {item.expectedEvidenceIds.join(", ") || "없음 — 사례 조건 확인 필요"}
         </p>
       </div>
       <div className="detail-block">
@@ -1017,26 +1117,20 @@ function Comparison({
   a,
   b,
   cases,
+  reviews,
 }: {
   a: Run;
   b: Run;
   cases: (EvalCase & { datasetId: string; datasetVersion: string })[];
+  reviews: DataState["reviews"];
 }) {
   const same =
     a.datasetId === b.datasetId &&
     a.datasetVersion === b.datasetVersion &&
-    a.corpusHash === b.corpusHash;
+    a.corpusHash === b.corpusHash &&
+    (!a.experiment && !b.experiment || Boolean(a.experiment && b.experiment && a.experiment.inputHash === b.experiment.inputHash && a.experiment.promptVersion === b.experiment.promptVersion && a.model === b.model && a.results.length === b.results.length && a.results.every((result) => b.results.some((other) => other.caseId === result.caseId))));
   const ids = [
     ...new Set([
-      ...(same
-        ? cases
-            .filter(
-              (c) =>
-                c.datasetId === a.datasetId &&
-                c.datasetVersion === a.datasetVersion,
-            )
-            .map((c) => c.id)
-        : []),
       ...a.results.map((r) => r.caseId),
       ...b.results.map((r) => r.caseId),
     ]),
@@ -1070,15 +1164,16 @@ function Comparison({
                 )?.question ?? "사례 정보 없음"}
               </p>
             </div>
-            <Result result={a.results.find((r) => r.caseId === id)} />
-            <Result result={b.results.find((r) => r.caseId === id)} />
+            <Result result={a.results.find((r) => r.caseId === id)} candidateAvailable={a.environment !== "isolated_spring" && !a.experiment} />
+            <Result result={b.results.find((r) => r.caseId === id)} candidateAvailable={b.environment !== "isolated_spring" && !b.experiment} />
           </div>
         ))}
       </div>
+      {(a.experiment || b.experiment) && <div className="panel"><h2>단계별 실행 비교</h2><p className="muted">품질은 실험 상세에서 기록한 사람 검수예요.</p><div className="comparison-row">{[a,b].map((run) => <div className="result" key={run.id}><strong>{run.experiment ? `검증 ${run.experiment.variant}` : "기존 실행"}</strong>{run.experiment?.stages.map((stage) => { const review = reviews.filter((item) => item.runId === run.id && item.stageId === stage.id).sort((x,y) => y.createdAt.localeCompare(x.createdAt))[0]; return <p key={stage.id}>{stage.label} · {stage.status === "not_applicable" ? "해당 없음" : stage.status === "failed" ? "실패" : stage.status === "not_run" ? "미실행" : "실행됨"} · {stage.durationMs === null ? "시간 미수집" : `${stage.durationMs}ms`} · 품질 {review ? labels[review.outcome] : "미검수"}</p>; })}</div>)}</div></div>}
     </>
   );
 }
-function Result({ result }: { result: Run["results"][number] | undefined }) {
+function Result({ result, candidateAvailable }: { result: Run["results"][number] | undefined; candidateAvailable: boolean }) {
   return (
     <div className="result">
       {!result ? (
@@ -1092,7 +1187,7 @@ function Result({ result }: { result: Run["results"][number] | undefined }) {
           </span>
           <p>{result.answer || result.error || "답변 없음"}</p>
           <small>
-            후보 {result.candidates.join(", ") || "없음"} · 근거{" "}
+            후보 {candidateAvailable ? result.candidates.join(", ") || "없음" : "미수집"} · 근거{" "}
             {result.evidenceIds.join(", ") || "없음"} ·{" "}
             {result.latencyMs === null ? "시간 없음" : `${result.latencyMs}ms`}
           </small>
@@ -1100,6 +1195,25 @@ function Result({ result }: { result: Run["results"][number] | undefined }) {
       )}
     </div>
   );
+}
+
+function ExperimentStage({stage, reviews, busy, onReview}: {
+  stage: NonNullable<Run["experiment"]>["stages"][number];
+  reviews: DataState["reviews"];
+  busy: boolean;
+  onReview: (outcome: "correct" | "incorrect" | "hold", notes: string) => Promise<void>;
+}) {
+  const [note, setNote] = useState("");
+  const current = [...reviews].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+  const status = {completed:"실행됨",failed:"실패",not_applicable:"해당 없음",not_run:"미실행"}[stage.status];
+  return <section className="detail-block" aria-label={`${stage.label} 단계`}>
+    <strong>{stage.label}</strong> <span className="muted">· {status} · {stage.durationMs === null ? "시간 미수집" : `${stage.durationMs.toLocaleString("ko-KR")}ms`}</span>
+    <pre style={{whiteSpace:"pre-wrap",overflowWrap:"anywhere"}}>{stage.result}</pre>
+    <small>입력 토큰 {stage.inputTokens ?? "미수집"} · 출력 토큰 {stage.outputTokens ?? "미수집"}</small>
+    <p>품질: {current ? `${labels[current.outcome]} · ${current.reviewer} · ${new Date(current.createdAt).toLocaleString("ko-KR", {timeZone:"Asia/Seoul"})}` : stage.status === "not_applicable" ? "해당 없음" : "미검수"}</p>
+    {reviews.length > 0 && <details><summary>검수 이력 {reviews.length}건</summary>{[...reviews].sort((a,b) => b.createdAt.localeCompare(a.createdAt)).map((review) => <p key={review.id}>{labels[review.outcome]} · {review.reviewer} · {new Date(review.createdAt).toLocaleString("ko-KR",{timeZone:"Asia/Seoul"})}{review.notes ? ` · ${review.notes}` : ""}</p>)}</details>}
+    {stage.status === "completed" && <><textarea aria-label={`${stage.label} 품질 검수 의견`} value={note} onChange={(event) => setNote(event.target.value)} placeholder="이 단계의 품질 판단 근거" /><div className="review-actions">{(["correct","incorrect","hold"] as const).map((outcome) => <button className="outline" disabled={busy} key={outcome} onClick={() => void onReview(outcome,note)}>{labels[outcome]}</button>)}</div></>}
+  </section>;
 }
 
 function RunDetail({
@@ -1112,6 +1226,8 @@ function RunDetail({
   setNotes,
   busy,
   onReview,
+  onStageReview,
+  onCompare,
 }: {
   run: Run;
   cases: (EvalCase & { datasetId: string; datasetVersion: string })[];
@@ -1122,6 +1238,8 @@ function RunDetail({
   setNotes: (v: string) => void;
   busy: boolean;
   onReview: (v: "correct" | "incorrect" | "hold") => void;
+  onStageReview: (stageId: string, outcome: "correct" | "incorrect" | "hold", notes: string) => Promise<void>;
+  onCompare: () => void;
 }) {
   const result =
     run.results.find((r) => r.caseId === selected) ?? run.results[0];
@@ -1152,15 +1270,15 @@ function RunDetail({
       ?.expectedEvidenceIds.every((id) => r.candidates.includes(id)),
   ).length;
   return (
-    <section className="panel run-detail">
+    <section id="run-detail" className="panel run-detail" aria-label="선택한 실험 결과">
       <div className="panel-head">
         <div>
-          <h2>{run.name}</h2>
+          <h2>{koreaTimeInText(run.name)}</h2>
           <p>
-            {run.strategy} · {run.environment} · {run.model} · {run.revision}
+            {koreaTimeInText(run.strategy)} · {run.environment} · {modelLabel(run.model)} · {run.revision}
           </p>
         </div>
-        <span className="badge neutral">{labels[run.status]}</span>
+        <div className="run-list-tools"><span className="badge neutral">{labels[run.status]}</span><button className="outline" onClick={onCompare}>이전 결과와 비교</button></div>
       </div>
       <div className="metrics-inline">
         <span>
@@ -1175,16 +1293,16 @@ function RunDetail({
         <span>
           기대 근거 후보 포함{" "}
           <strong>
-            {hits} / {withEvidence.length}
+            {run.experiment ? "해당 없음" : run.environment === "isolated_spring" ? "미수집" : `${hits} / ${withEvidence.length}`}
           </strong>
         </span>
       </div>
       <p className="run-hint">
-        기대 근거가 있는 사례만 포함률 분모로 사용하며, 결과가 없는 사례는
-        제외됩니다. 실행 결과는 사람의 검수가 필요해요.
+        {run.experiment ? "고정 문서 실험은 검색을 실행하지 않아 후보 포함률을 계산하지 않아요." : run.environment === "isolated_spring" ? "Spring은 검색 후보 목록을 반환하지 않아 후보 포함률을 계산하지 않아요." : "기대 근거가 있는 사례만 포함률 분모로 사용해요."} 응답 완료는 정답을 의미하지 않으며 사람의 검수가 필요해요.
       </p>
-      <div className="case-layout run-grid">
-        <div>
+      {run.model.includes("(LM Studio)") && <p className="run-hint">기존 실행의 서빙 방식은 기록을 확인해야 해요. 현재 서비스는 vLLM을 사용합니다.</p>}
+      <div className="run-grid">
+        {run.results.length > 1 && <div className="run-case-list">
           {run.results.map((r) => (
             <button
               className={`case-row ${result?.caseId === r.caseId ? "selected" : ""}`}
@@ -1205,23 +1323,48 @@ function RunDetail({
               <span className="badge neutral">{labels[r.status]}</span>
             </button>
           ))}
-        </div>
+        </div>}
         {result && (
           <div className="detail">
             <div className="detail-block">
-              <label>기대 동작</label>
-              <p>{c?.expectedBehavior || "사례 정보 없음"}</p>
+              <label>사용자 질문 · {result.caseId}</label>
+              <p className="question">{c?.question || "사례 정보 없음"}</p>
+            </div>
+            {!!c?.history.length && <div className="detail-block">
+              <label>이전 대화</label>
+              {c.history.map((message, index) => <p className="history" key={index}><span>{message.role === "user" ? "사용자" : "답변"}</span> {message.content}</p>)}
+            </div>}
+            <div className="detail-block">
+              <label>실제 응답 · {labels[result.status]}</label>
+              <p className="run-answer">{result.answer || result.error || "답변 없음"}</p>
+              {result.retrievalObserved && <p className="muted">검색 단계: {result.retrievalObserved === 'performed' ? '실행됨' : result.retrievalObserved === 'skipped' ? '실행하지 않음' : '확인할 수 없음'}</p>}
+              {run.budgetObservation && <p className="muted">입력 제한: {run.budgetObservation.inputChars} / {run.budgetObservation.limitChars}자 · 후보 {run.budgetObservation.documents}개 중 {run.budgetObservation.selectedDocuments}개 전달 · 일부만 확인</p>}
+              {result.privacyLogObserved && <p className="muted">합성 개인정보 로그 관측: {result.privacyLogObserved === 'exposed' ? '노출 감지' : result.privacyLogObserved === 'not_observed' ? '관측된 로그에서 노출 없음' : '확인할 수 없음'} (해당 실행의 로그만 확인)</p>}
+              {result.answer && result.error && <p className="run-error">오류: {result.error}</p>}
+              <p className="muted">
+                후보 {run.experiment ? "해당 없음 (고정 문서)" : run.environment === "isolated_spring" ? "미수집" : result.candidates.join(", ") || "없음"} · 근거{" "}
+                {result.evidenceIds.join(", ") || "없음"} ·{" "}
+                {result.latencyMs === null ? "시간 없음" : `${result.latencyMs}ms`}
+              </p>
             </div>
             <div className="detail-block">
-              <label>실제 결과 · {labels[result.status]}</label>
-              <p>{result.answer || result.error || "답변 없음"}</p>
-              <p className="muted">
-                후보 {result.candidates.join(", ") || "없음"} · 근거{" "}
-                {result.evidenceIds.join(", ") || "없음"} ·{" "}
-                {result.latencyMs === null
-                  ? "시간 없음"
-                  : `${result.latencyMs}ms`}
-              </p>
+              <label>단계별 소요 시간</label>
+              {result.clientTimings?.firstProgressMs !== undefined && <p>첫 진행 상황 수신: {result.clientTimings.firstProgressMs.toLocaleString("ko-KR")}ms</p>}
+              {result.clientTimings?.firstDeltaMs !== undefined && <p>첫 답변 조각 수신: {result.clientTimings.firstDeltaMs.toLocaleString("ko-KR")}ms</p>}
+              {(result.clientTimings?.firstProgressMs !== undefined || result.clientTimings?.firstDeltaMs !== undefined) && <small>질문 POST 전송부터 평가 실행기가 이벤트를 수신하기까지의 시간이에요.</small>}
+              {result.stageTimings?.capture === "collected" ? <>
+                {result.stageTimings.stages.map((stage, index) => <p key={`${stage.phase}-${index}`}>{stageLabels[stage.phase] ?? stage.phase}: {stage.durationMs.toLocaleString("ko-KR")}ms{stage.outcome === "failure" ? " · 실패" : ""}</p>)}
+                <small>백엔드 로그 기준. 첫 내용과 저장 시간은 답변 생성에 포함될 수 있어 단순 합산하지 않아요. 표시되지 않은 단계는 측정되지 않았어요.</small>
+              </> : <p className="muted">{run.experiment ? "고정 문서 실험의 시간은 아래 단계별 결과에서 확인해요." : "단계별 기록이 없어요. 새 실험부터 수집합니다."}</p>}
+            </div>
+            {run.experiment && <div className="detail-block">
+              <label>단계별 결과·시간·품질</label>
+              <p className="muted">검증 {run.experiment.variant} · 고정 입력 {run.experiment.inputHash.slice(0, 12)} · 모델의 판정과 사람 검수는 별개예요.</p>
+              {run.experiment.stages.map((stage) => <ExperimentStage key={stage.id} stage={stage} reviews={reviews.filter((review) => review.runId === run.id && review.stageId === stage.id)} busy={busy} onReview={(outcome, stageNotes) => onStageReview(stage.id, outcome, stageNotes)} />)}
+            </div>}
+            <div className="detail-block">
+              <label>기대 동작</label>
+              <p>{c?.expectedBehavior || "사례 정보 없음"}</p>
             </div>
             <div className="detail-block">
               <label htmlFor="run-note">결과 검수</label>
@@ -1254,15 +1397,7 @@ function RunDetail({
                   판단 보류
                 </button>
               </div>
-              <p className="muted">
-                이 결과의 검수{" "}
-                {
-                  reviews.filter(
-                    (r) => r.runId === run.id && r.caseId === result.caseId,
-                  ).length
-                }
-                건
-              </p>
+              <RunReviews reviews={reviews} runId={run.id} caseId={result.caseId} />
             </div>
           </div>
         )}

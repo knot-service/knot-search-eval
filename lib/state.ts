@@ -81,6 +81,11 @@ export function applyAction(state: DataState, input: unknown): DataState {
       )
         throw new Error("실험 결과를 찾을 수 없습니다.");
     }
+    if (v.stageId !== undefined) {
+      const run = state.runs.find((r) => r.id === v.runId);
+      if (typeof v.stageId !== "string" || !run?.experiment?.stages.some((s) => s.id === v.stageId))
+        throw new Error("실험 단계를 찾을 수 없습니다.");
+    }
     return {
       ...state,
       reviews: [
@@ -91,6 +96,7 @@ export function applyAction(state: DataState, input: unknown): DataState {
           datasetVersion: v.datasetVersion,
           caseId: v.caseId,
           ...(typeof v.runId === "string" ? { runId: v.runId } : {}),
+          ...(typeof v.stageId === "string" ? { stageId: v.stageId } : {}),
           outcome: v.outcome as "correct" | "incorrect" | "hold",
           notes: v.notes,
           reviewer: "개인 평가자",
@@ -102,6 +108,9 @@ export function applyAction(state: DataState, input: unknown): DataState {
   throw new Error("지원하지 않는 작업입니다.");
 }
 export function comparable(a: RunSchemaType, b: RunSchemaType): boolean {
+  if (a.experiment || b.experiment) {
+    if (!a.experiment || !b.experiment || a.experiment.kind !== b.experiment.kind || a.experiment.inputHash !== b.experiment.inputHash || a.experiment.promptVersion !== b.experiment.promptVersion || a.model !== b.model || a.results.length !== b.results.length || !a.results.every((r) => b.results.some((other) => other.caseId === r.caseId))) return false;
+  }
   return (
     a.datasetId === b.datasetId &&
     a.datasetVersion === b.datasetVersion &&
