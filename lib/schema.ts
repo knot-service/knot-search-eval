@@ -105,7 +105,7 @@ export const RunSchema = z
     startedAt: z.string().datetime({ offset: true }),
     status: z.enum(["completed", "failed", "cancelled"]),
     experiment: z.object({
-      kind: z.literal("fixed_document_verification"),
+      kind: z.enum(["fixed_document_verification", "question_understanding"]),
       variant: z.enum(["A", "B"]),
       inputHash: z.string().min(1).max(150),
       promptVersion: z.string().min(1).max(100),

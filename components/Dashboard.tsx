@@ -1168,15 +1168,15 @@ function Comparison({
                 )?.question ?? "사례 정보 없음"}
               </p>
             </div>
-            <Result result={a.results.find((r) => r.caseId === id)} candidateAvailable={a.environment !== "isolated_spring" && !a.experiment} fixedExperiment={Boolean(a.experiment)} />
-            <Result result={b.results.find((r) => r.caseId === id)} candidateAvailable={b.environment !== "isolated_spring" && !b.experiment} fixedExperiment={Boolean(b.experiment)} />
+            <Result result={a.results.find((r) => r.caseId === id)} candidateAvailable={a.environment !== "isolated_spring" && !a.experiment} experimentKind={a.experiment?.kind} />
+            <Result result={b.results.find((r) => r.caseId === id)} candidateAvailable={b.environment !== "isolated_spring" && !b.experiment} experimentKind={b.experiment?.kind} />
           </div>
         ))}
       </div>
     </>
   );
 }
-function Result({ result, candidateAvailable, fixedExperiment }: { result: Run["results"][number] | undefined; candidateAvailable: boolean; fixedExperiment: boolean }) {
+function Result({ result, candidateAvailable, experimentKind }: { result: Run["results"][number] | undefined; candidateAvailable: boolean; experimentKind?: NonNullable<Run["experiment"]>["kind"] }) {
   return (
     <div className="result">
       {!result ? (
@@ -1190,7 +1190,7 @@ function Result({ result, candidateAvailable, fixedExperiment }: { result: Run["
           </span>
           <p>{result.answer || result.error || "답변 없음"}</p>
           <small>
-            후보 {fixedExperiment ? "해당 없음 (고정 문서)" : candidateAvailable ? result.candidates.join(", ") || "없음" : "미수집"} · {fixedExperiment ? "모델이 제시한 근거 후보" : "근거"}{" "}
+            후보 {experimentKind === "question_understanding" ? "해당 없음 (검색 미실행)" : experimentKind ? "해당 없음 (고정 문서)" : candidateAvailable ? result.candidates.join(", ") || "없음" : "미수집"} · {experimentKind === "question_understanding" ? "근거 미확인" : experimentKind ? "모델이 제시한 근거 후보" : "근거"}{" "}
             {result.evidenceIds.join(", ") || "없음"} ·{" "}
             {result.latencyMs === null ? "시간 없음" : `${result.latencyMs}ms`}
           </small>
@@ -1301,7 +1301,7 @@ function RunDetail({
         </span>
       </div>
       <p className="run-hint">
-        {run.experiment ? "고정 문서 실험은 검색을 실행하지 않아 후보 포함률을 계산하지 않아요." : run.environment === "isolated_spring" ? "Spring은 검색 후보 목록을 반환하지 않아 후보 포함률을 계산하지 않아요." : "기대 근거가 있는 사례만 포함률 분모로 사용해요."} 응답 완료는 정답을 의미하지 않으며 사람의 검수가 필요해요.
+        {run.experiment?.kind === "question_understanding" ? "질문 이해만 실행하여 문서 검색과 답변 생성은 하지 않아요." : run.experiment ? "고정 문서 실험은 검색을 실행하지 않아 후보 포함률을 계산하지 않아요." : run.environment === "isolated_spring" ? "Spring은 검색 후보 목록을 반환하지 않아 후보 포함률을 계산하지 않아요." : "기대 근거가 있는 사례만 포함률 분모로 사용해요."} 응답 완료는 정답을 의미하지 않으며 사람의 검수가 필요해요.
       </p>
       {run.model.includes("(LM Studio)") && <p className="run-hint">기존 실행의 서빙 방식은 기록을 확인해야 해요. 현재 서비스는 vLLM을 사용합니다.</p>}
       <div className="run-grid">
@@ -1338,14 +1338,14 @@ function RunDetail({
               {c.history.map((message, index) => <p className="history" key={index}><span>{message.role === "user" ? "사용자" : "답변"}</span> {message.content}</p>)}
             </div>}
             <div className="detail-block">
-              <label>실제 응답 · {labels[result.status]}</label>
+              <label>{run.experiment?.kind === "question_understanding" ? "질문 이해 결과" : "실제 응답"} · {labels[result.status]}</label>
               <p className="run-answer">{result.answer || result.error || "답변 없음"}</p>
               {result.retrievalObserved && <p className="muted">검색 단계: {result.retrievalObserved === 'performed' ? '실행됨' : result.retrievalObserved === 'skipped' ? '실행하지 않음' : '확인할 수 없음'}</p>}
               {run.budgetObservation && <p className="muted">입력 제한: {run.budgetObservation.inputChars} / {run.budgetObservation.limitChars}자 · 후보 {run.budgetObservation.documents}개 중 {run.budgetObservation.selectedDocuments}개 전달 · 일부만 확인</p>}
               {result.privacyLogObserved && <p className="muted">합성 개인정보 로그 관측: {result.privacyLogObserved === 'exposed' ? '노출 감지' : result.privacyLogObserved === 'not_observed' ? '관측된 로그에서 노출 없음' : '확인할 수 없음'} (해당 실행의 로그만 확인)</p>}
               {result.answer && result.error && <p className="run-error">오류: {result.error}</p>}
               <p className="muted">
-                후보 {run.experiment ? "해당 없음 (고정 문서)" : run.environment === "isolated_spring" ? "미수집" : result.candidates.join(", ") || "없음"} · {run.experiment ? "모델이 제시한 근거 후보" : "근거"}{" "}
+                후보 {run.experiment?.kind === "question_understanding" ? "해당 없음 (검색 미실행)" : run.experiment ? "해당 없음 (고정 문서)" : run.environment === "isolated_spring" ? "미수집" : result.candidates.join(", ") || "없음"} · {run.experiment?.kind === "question_understanding" ? "근거 미확인" : run.experiment ? "모델이 제시한 근거 후보" : "근거"}{" "}
                 {result.evidenceIds.join(", ") || "없음"} ·{" "}
                 {result.latencyMs === null ? "시간 없음" : `${result.latencyMs}ms`}
               </p>
@@ -1358,15 +1358,15 @@ function RunDetail({
               {result.stageTimings?.capture === "collected" ? <>
                 {result.stageTimings.stages.map((stage, index) => <p key={`${stage.phase}-${index}`}>{stageLabels[stage.phase] ?? stage.phase}: {stage.durationMs.toLocaleString("ko-KR")}ms{stage.outcome === "failure" ? " · 실패" : ""}</p>)}
                 <small>백엔드 로그 기준. 첫 내용과 저장 시간은 답변 생성에 포함될 수 있어 단순 합산하지 않아요. 표시되지 않은 단계는 측정되지 않았어요.</small>
-              </> : <p className="muted">{run.experiment ? "고정 문서 실험의 시간은 아래 단계별 결과에서 확인해요." : "단계별 기록이 없어요. 새 실험부터 수집합니다."}</p>}
+              </> : <p className="muted">{run.experiment ? "실험 시간은 아래 단계별 결과에서 확인해요." : "단계별 기록이 없어요. 새 실험부터 수집합니다."}</p>}
             </div>
             {run.experiment && <div className="detail-block">
               <label>단계별 결과·시간·품질</label>
-              <p className="muted">검증 {run.experiment.variant} · 고정 입력 {run.experiment.inputHash.slice(0, 12)} · 모델의 판정과 사람 검수는 별개예요.</p>
+              <p className="muted">{run.experiment.kind === "question_understanding" ? `질문 이해 ${run.experiment.variant === "A" ? "HTTP" : "Spring AI"}` : `검증 ${run.experiment.variant}`} · 고정 입력 {run.experiment.inputHash.slice(0, 12)} · 모델의 판정과 사람 검수는 별개예요.</p>
               {run.experiment.stages.map((stage) => <ExperimentStage key={stage.id} stage={stage} reviews={reviews.filter((review) => review.runId === run.id && review.stageId === stage.id)} busy={busy} onReview={(outcome, stageNotes) => onStageReview(stage.id, outcome, stageNotes)} />)}
             </div>}
             <div className="detail-block">
-              <label>기대 동작</label>
+              <label>{run.experiment?.kind === "question_understanding" ? "참고: 전체 답변의 기대 동작" : "기대 동작"}</label>
               <p>{c?.expectedBehavior || "사례 정보 없음"}</p>
             </div>
             <div className="detail-block">

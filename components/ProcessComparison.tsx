@@ -33,7 +33,14 @@ function duration(ms: number | null) {
 }
 
 function runName(run: Run, index: number) {
+  if (run.experiment?.kind === "question_understanding") return `실행 ${index + 1} · ${run.experiment.variant === "A" ? "HTTP" : "Spring AI"} · ${run.strategy.includes("· schema ·") ? "스키마" : "프롬프트"}`;
   return run.experiment ? `실행 ${index + 1} · 검증 ${run.experiment.variant}` : `실행 ${index + 1} · 기존 실행`;
+}
+
+function modelCallMetric(run: Run) {
+  if (run.experiment?.kind === "question_understanding") return {value: run.strategy.includes("· 호출 1") ? "1회" : "미수집", detail: "실제 기록된 호출 수"};
+  const stages = run.experiment?.stages.filter(stage => modelStages.has(stage.id) && (stage.status === "completed" || stage.status === "failed")) ?? [];
+  return stages.length ? {value:`${stages.length}회`,detail:"실행·실패 단계 기준"} : {value:"미수집"};
 }
 
 function quality(review: Review | undefined, status?: Stage["status"]) {
@@ -90,7 +97,7 @@ export function ProcessComparison({ runs, reviews }: { runs: [Run, Run]; reviews
       <div className="tw:flex tw:flex-wrap tw:items-start tw:justify-between tw:gap-3"><div><div className="tw:mb-1 tw:text-[11px] tw:font-semibold tw:tracking-[0.12em] tw:text-indigo-600">PROCESS COMPARISON</div><h2 id="process-comparison-title" className="tw:text-lg tw:font-bold tw:text-slate-900">단계별 실행 비교</h2><p className="tw:mt-1 tw:text-xs tw:text-slate-500">실제 기록된 단계와 검수 결과를 비교해요.</p></div><Badge variant="info"><Activity size={12} aria-hidden="true" />실행 기록</Badge></div>
       <div className="tw:mt-5 tw:grid tw:grid-cols-1 tw:gap-3 tw:lg:grid-cols-3">
         <Metric title="총 소요 시간" icon={Clock3} values={values.map(({run,name}) => ({name, value:run.results.length === 1 ? duration(run.results[0].latencyMs) : "시간 미수집", detail:run.results.length === 1 ? "사례 응답 시간" : "단일 사례가 아니에요"}))} />
-        <Metric title="기록된 모델 호출" icon={Activity} values={values.map(({run,name}) => ({name, value:run.experiment?.stages.some(stage => modelStages.has(stage.id)) ? `${run.experiment.stages.filter(stage => modelStages.has(stage.id) && (stage.status === "completed" || stage.status === "failed")).length}회` : "미수집", detail:run.experiment?.stages.some(stage => modelStages.has(stage.id)) ? "실행·실패 단계 기준" : undefined}))} />
+        <Metric title="기록된 모델 호출" icon={Activity} values={values.map(({run,name}) => ({name, ...modelCallMetric(run)}))} />
         <Metric title="최종 검수" icon={Check} values={values.map(({run,name}) => { const review = latestReview(reviews,run); return {name,value:review ? qualityInfo[review.outcome].label : "미검수",detail:review?.reviewer}; })} />
       </div>
     </div>
