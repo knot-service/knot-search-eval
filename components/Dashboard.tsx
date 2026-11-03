@@ -855,8 +855,8 @@ export function Dashboard() {
                       onCompare={() => {
                         const current = activeRun;
                         if (!current) return;
-                        const previous = [...runs].reverse().find((x) => x.id !== current.id && x.datasetId === current.datasetId && x.datasetVersion === current.datasetVersion && x.corpusHash === current.corpusHash && x.startedAt < current.startedAt && x.results.some((result) => current.results.some((item) => item.caseId === result.caseId)) && (!current.experiment && !x.experiment || Boolean(current.experiment && x.experiment && current.experiment.inputHash === x.experiment.inputHash && current.experiment.promptVersion === x.experiment.promptVersion && current.model === x.model)));
-                        if (!previous) { setError("같은 조건의 이전 결과가 없어요. 이 사례를 다시 실행해 주세요."); return; }
+                        const previous = [...runs].reverse().find((x) => x.id !== current.id && x.datasetId === current.datasetId && x.datasetVersion === current.datasetVersion && x.corpusHash === current.corpusHash && x.startedAt < current.startedAt && x.results.some((result) => current.results.some((item) => item.caseId === result.caseId)) && (!current.experiment && !x.experiment || Boolean(current.experiment && x.experiment && current.experiment.inputHash === x.experiment.inputHash && current.experiment.variant === x.experiment.variant && current.model === x.model)));
+                        if (!previous) { setError("같은 입력과 방식의 이전 결과가 없어요."); return; }
                         setLeft(previous.id); setRight(current.id); go("compare");
                       }}
                       onReview={async (outcome) => {
@@ -1140,7 +1140,9 @@ function Comparison({
       <div className={`compare-status ${same ? "" : "warn"}`}>
         {same
           ? "평가셋 버전과 입력된 문서 집합 식별자가 같아요. 실제 문서 및 나머지 실행 조건은 별도로 확인하세요."
-          : "평가셋 버전 또는 문서 집합이 달라 동일 조건 비교가 아니에요."}
+          : a.experiment && b.experiment && a.experiment.inputHash === b.experiment.inputHash && a.experiment.promptVersion !== b.experiment.promptVersion
+            ? `프롬프트가 달라요: ${a.experiment.promptVersion} → ${b.experiment.promptVersion}. 입력과 모델 등 다른 조건도 확인하세요.`
+            : "평가셋, 입력 또는 실행 조건이 달라 동일 조건 비교가 아니에요."}
       </div>
       <div className="panel">
         <div className="panel-head">
@@ -1164,16 +1166,16 @@ function Comparison({
                 )?.question ?? "사례 정보 없음"}
               </p>
             </div>
-            <Result result={a.results.find((r) => r.caseId === id)} candidateAvailable={a.environment !== "isolated_spring" && !a.experiment} />
-            <Result result={b.results.find((r) => r.caseId === id)} candidateAvailable={b.environment !== "isolated_spring" && !b.experiment} />
+            <Result result={a.results.find((r) => r.caseId === id)} candidateAvailable={a.environment !== "isolated_spring" && !a.experiment} fixedExperiment={Boolean(a.experiment)} />
+            <Result result={b.results.find((r) => r.caseId === id)} candidateAvailable={b.environment !== "isolated_spring" && !b.experiment} fixedExperiment={Boolean(b.experiment)} />
           </div>
         ))}
       </div>
-      {(a.experiment || b.experiment) && <div className="panel"><h2>단계별 실행 비교</h2><p className="muted">품질은 실험 상세에서 기록한 사람 검수예요.</p><div className="comparison-row">{[a,b].map((run) => <div className="result" key={run.id}><strong>{run.experiment ? `검증 ${run.experiment.variant}` : "기존 실행"}</strong>{run.experiment?.stages.map((stage) => { const review = reviews.filter((item) => item.runId === run.id && item.stageId === stage.id).sort((x,y) => y.createdAt.localeCompare(x.createdAt))[0]; return <p key={stage.id}>{stage.label} · {stage.status === "not_applicable" ? "해당 없음" : stage.status === "failed" ? "실패" : stage.status === "not_run" ? "미실행" : "실행됨"} · {stage.durationMs === null ? "시간 미수집" : `${stage.durationMs}ms`} · 품질 {review ? labels[review.outcome] : "미검수"}</p>; })}</div>)}</div></div>}
+      {(a.experiment || b.experiment) && <div className="panel"><h2>단계별 실행 비교</h2><p className="muted">실험 상세에 기록된 검수와 판정자를 표시해요.</p><div className="comparison-row">{[a,b].map((run) => <div className="result" key={run.id}><strong>{run.experiment ? `검증 ${run.experiment.variant} · ${run.experiment.promptVersion}` : "기존 실행"}</strong>{run.experiment?.stages.map((stage) => { const review = reviews.filter((item) => item.runId === run.id && item.stageId === stage.id).sort((x,y) => y.createdAt.localeCompare(x.createdAt))[0]; return <p key={stage.id}>{stage.label} · {stage.status === "not_applicable" ? "해당 없음" : stage.status === "failed" ? "실패" : stage.status === "not_run" ? "미실행" : "실행됨"} · {stage.durationMs === null ? "시간 미수집" : `${stage.durationMs}ms`} · 품질 {review ? `${labels[review.outcome]} (${review.reviewer})` : "미검수"}</p>; })}</div>)}</div></div>}
     </>
   );
 }
-function Result({ result, candidateAvailable }: { result: Run["results"][number] | undefined; candidateAvailable: boolean }) {
+function Result({ result, candidateAvailable, fixedExperiment }: { result: Run["results"][number] | undefined; candidateAvailable: boolean; fixedExperiment: boolean }) {
   return (
     <div className="result">
       {!result ? (
@@ -1187,7 +1189,7 @@ function Result({ result, candidateAvailable }: { result: Run["results"][number]
           </span>
           <p>{result.answer || result.error || "답변 없음"}</p>
           <small>
-            후보 {candidateAvailable ? result.candidates.join(", ") || "없음" : "미수집"} · 근거{" "}
+            후보 {fixedExperiment ? "해당 없음 (고정 문서)" : candidateAvailable ? result.candidates.join(", ") || "없음" : "미수집"} · {fixedExperiment ? "모델이 제시한 근거 후보" : "근거"}{" "}
             {result.evidenceIds.join(", ") || "없음"} ·{" "}
             {result.latencyMs === null ? "시간 없음" : `${result.latencyMs}ms`}
           </small>
