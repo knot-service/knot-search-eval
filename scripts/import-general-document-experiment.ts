@@ -1,0 +1,30 @@
+import {createHash,randomUUID} from 'node:crypto';
+import {readFile} from 'node:fs/promises';
+import pg from 'pg';
+import {readState,mutateState} from '../lib/db';
+import {DatasetSchema,RunSchema} from '../lib/schema';
+import {contentHash} from '../lib/state';
+
+const base='/Users/yongtae/Desktop/knot/backend/resume/search-improvement/';
+const specs=[
+ {caseId:'GD-01',file:'general-document-negative-qwen.json',fixture:'baseline',verifyMs:2883,accepted:0,variant:'unbatched',expected:'조건을 충족하는 킥오프 기록을 찾지 못하면 확인할 수 없다고 답한다.',evidence:[],review:'조건에 맞는 문서가 없어 확인 불가 안내로 답했다.'},
+ {caseId:'GD-02',file:'general-document-positive-qwen.json',fixture:'positive',verifyMs:3516,accepted:1,variant:'unbatched',expected:'결제 킥오프 기록에 있는 카드 결제 지원 결정을 답한다.',evidence:['document-2206'],review:'복제 문서의 결제 킥오프 기록과 답변을 대조했다.'},
+ {caseId:'GD-03',file:'general-document-card-qwen.json',fixture:'baseline',verifyMs:9147,accepted:2,variant:'unbatched',expected:'카드 결제 지원 결정과 출시 목표를 근거에 맞게 답한다.',evidence:['document-2141','document-2206'],review:'카드 결제 지원 결정과 11월 목표는 기록과 맞다. 다만 10월 29일을 최종 확정으로 연결하는 표현은 주의가 필요하다.'},
+ {caseId:'GD-04',file:'general-document-proposal-qwen.json',fixture:'baseline',verifyMs:null,accepted:null,variant:'unbatched',expected:'민지가 제안한 로그인 정책과 제안 상태를 근거에 맞게 답한다.',evidence:['document-2213'],review:'판정 응답의 문서 수가 맞지 않아 검색 후 실패했다.'},
+ {caseId:'GD-04',file:'general-document-proposal-batch-qwen.json',fixture:'baseline',verifyMs:9367,accepted:1,variant:'batch5',expected:'민지가 제안한 로그인 정책과 제안 상태를 근거에 맞게 답한다.',evidence:['document-2213'],review:'2단계 인증은 민지 제안이지만 파일럿·교육 방안이 민지의 제안인지는 원문이 명시하지 않는다. 해당 연결은 추가 확인이 필요하다.'},
+] as const;
+const positive='## 회의 개요\n이 문서는 결제 킥오프 회의의 기록이다.\n\n## 결정\n결제 킥오프 회의에서 카드 결제 지원을 확정했다.\n담당자는 민지다.';
+const hash=(x:unknown)=>createHash('sha256').update(JSON.stringify(x)).digest('hex');
+async function main(){
+ const url=process.env.DATABASE_URL;if(!url||!['localhost','127.0.0.1','::1'].includes(new URL(url).hostname))throw Error('로컬 평가 DB만 지원');
+ const db=new pg.Client({host:'127.0.0.1',port:55441,database:'knot_lab',user:'knot_lab',password:'knot-lab-local-only'});await db.connect();
+ const rows=(await db.query('SELECT d.id::text,d.title,d.topic,d.content,d.summary,d.status,d.created_at,d.archived_at,r.started_at,r.ended_at,r.accumulated_recording_millis FROM documents d JOIN recording_sessions r ON r.id=d.recording_session_id WHERE d.workspace_id=$1 ORDER BY d.id',[458])).rows;await db.end();
+ let state=await readState();const source=state.datasets.find(d=>d.id==='followup-search-fixtures'&&d.version==='1.0'&&d.locked);const original=source?.cases.find(c=>c.id==='QG-01');if(!source?.corpusHash||!original||rows.length!==90||hash(rows)!==source.corpusHash)throw Error('원본 문서 묶음 불일치');
+ for(const s of specs){const [item]=JSON.parse(await readFile(base+s.file,'utf8'));const fixtureRows=rows.map(row=>row.id==='2206'&&s.fixture==='positive'?{...row,title:'결제 킥오프 회의 결정',content:positive}:row);const corpusHash=hash(fixtureRows);const docs=fixtureRows.filter(row=>['2141','2206','2213'].includes(row.id)).map(row=>({id:`document-${row.id}`,title:row.title,content:row.content}));const datasetId=`general-document-${s.caseId.toLowerCase()}`;
+ let dataset=state.datasets.find(d=>d.id===datasetId&&d.version==='1.0');if(!dataset){const raw=DatasetSchema.parse({id:datasetId,name:`일반 문서 확인 · ${s.caseId}`,version:'1.0',source:'synthetic',corpusHash,cases:[{...original,id:s.caseId,question:item.question,history:[],documents:docs,expectedEvidenceIds:s.evidence,expectedType:s.caseId==='GD-01'?'not_found':'answer',expectedBehavior:s.expected,setup:s.fixture==='positive'?'복제 DB 문서 2206을 킥오프 회의 기록으로 변경.':'기존 v1.30 합성 문서 90개.'}]});await mutateState({type:'import_dataset',data:raw});state=await mutateState({type:'lock_dataset',id:raw.id,version:raw.version});dataset=state.datasets.find(d=>d.id===datasetId&&d.version==='1.0');}if(!dataset?.locked||dataset.corpusHash!==corpusHash||dataset.contentHash!==contentHash(DatasetSchema.parse(dataset)))throw Error('평가셋 무결성 오류');
+ const revision=`general-document-${s.variant}-v1`;if(state.runs.some(r=>r.revision===revision&&r.results.some(x=>x.caseId===s.caseId)))continue;
+ const st=item.stages;const stage=(id:string,label:string,status:'completed'|'failed'|'not_run',durationMs:number|null,result:string)=>({id,label,status,durationMs,result,inputTokens:null,outputTokens:null});
+ const run=RunSchema.parse({id:`worker-${randomUUID()}`,datasetId:dataset.id,datasetVersion:dataset.version,corpusHash,name:`${s.caseId} · 문서 조건 확인 · ${s.variant}`,strategy:'실제 Worker·Qwen · 일반 문서 조건 확인',environment:'isolated_spring',model:'qwen3.8-27b MTP6 128K',revision,startedAt:item.receivedAt,status:item.status==='COMPLETED'?'completed':'failed',experiment:{kind:'search_retrieval',variant:s.variant==='batch5'?'B':'A',inputHash:hash({question:item.question,corpusHash}),promptVersion:revision,stages:[stage('intent_classification','의도 분류','completed',st.classificationMs??null,'실제 모델 호출'),stage('question_understanding','질문 이해','completed',st.questionUnderstandingMs??null,JSON.stringify(st.questionPlan)),stage('document_retrieval','검색 후보','completed',st.sqlMs??null,JSON.stringify({parameters:st.searchParameters,sqlCandidates:st.candidates,note:'SQL 원본 후보는 최대 21개이며 이후 20개까지만 확인한다.'})),stage('document_verification','문서 조건 확인',s.accepted===null?'failed':'completed',s.verifyMs,JSON.stringify({accepted:s.accepted,note:s.accepted===null?'판정 누락으로 실패; 단계 소요 미수집':'원문 인용 개별 결과는 미수집',batch:s.variant})),stage('answer_generation','답변 생성',st.generationOutcome?'completed':'not_run',st.generationMs??null,st.generationOutcome?item.answer:'답변 생성 모델 미실행')]},results:[{caseId:s.caseId,status:item.status==='COMPLETED'?'completed':'failed',candidates:st.candidates??[],answer:item.answer,evidenceIds:item.evidenceIds.map((n:number)=>`document-${n}`),latencyMs:item.workerMs,error:item.failureCode}]});state=await mutateState({type:'import_run',data:run});console.log(JSON.stringify({case:s.caseId,revision,run:run.id}));
+ }
+}
+main().then(()=>process.exit(0)).catch((e:unknown)=>{console.error(e instanceof Error?e.message:'기록 실패');process.exit(1)});
