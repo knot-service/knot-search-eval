@@ -1342,7 +1342,7 @@ function RunDetail({
         </span>
       </div>
       <p className="run-hint">
-        {run.strategy.startsWith("OpenAI Decisions") ? "세 가지 질문에 대한 확률만 판단하며 대상·기간 추출, 문서 검색과 답변 생성은 하지 않아요. AI 검수는 임시 기준 0.5를 사용했어요." : run.experiment?.kind === "question_understanding" ? "질문 이해만 실행하여 문서 검색과 답변 생성은 하지 않아요." : run.experiment?.kind === "search_retrieval" ? "검색 후보만 확인하며 문서 대조와 답변 생성은 하지 않아요." : run.experiment ? "고정 문서 실험은 검색을 실행하지 않아 후보 포함률을 계산하지 않아요." : run.environment === "isolated_spring" ? "Spring은 검색 후보 목록을 반환하지 않아 후보 포함률을 계산하지 않아요." : "기대 근거가 있는 사례만 포함률 분모로 사용해요."} 응답 완료는 정답을 의미하지 않으며 사람의 검수가 필요해요.
+        {run.strategy.startsWith("OpenAI Decisions") ? "세 가지 질문에 대한 확률만 판단하며 대상·기간 추출, 문서 검색과 답변 생성은 하지 않아요. AI 검수는 임시 기준 0.5를 사용했어요." : run.experiment?.kind === "question_understanding" ? "질문 이해만 실행하여 문서 검색과 답변 생성은 하지 않아요." : run.experiment?.kind === "search_retrieval" ? "검색과 문서 확인, 답변 생성의 실행 여부는 아래 단계별 결과에서 확인해요." : run.experiment ? "고정 문서 실험은 검색을 실행하지 않아 후보 포함률을 계산하지 않아요." : run.environment === "isolated_spring" ? "Spring은 검색 후보 목록을 반환하지 않아 후보 포함률을 계산하지 않아요." : "기대 근거가 있는 사례만 포함률 분모로 사용해요."} 응답 완료는 정답을 의미하지 않으며 사람의 검수가 필요해요.
       </p>
       {run.model.includes("(LM Studio)") && <p className="run-hint">기존 실행의 서빙 방식은 기록을 확인해야 해요. 현재 서비스는 vLLM을 사용합니다.</p>}
       <div className="run-grid">
