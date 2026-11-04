@@ -1178,6 +1178,7 @@ function Comparison({
             ? `프롬프트가 달라요: ${a.experiment.promptVersion} → ${b.experiment.promptVersion}. 입력과 모델 등 다른 조건도 확인하세요.`
             : "평가셋, 입력 또는 실행 조건이 달라 동일 조건 비교가 아니에요."}
       </div>
+      {a.strategy.startsWith("OpenAI Decisions") !== b.strategy.startsWith("OpenAI Decisions") && <div className="compare-status warn">Decisions는 세 가지 질문의 확률을 판단하고, 다른 질문 이해 실험은 대상·조건을 추출해요. 작업 범위가 달라 시간과 품질을 동등하게 비교할 수 없어요.</div>}
       {(a.experiment || b.experiment) && <ProcessComparison runs={[a, b]} reviews={reviews} />}
       <div className="panel">
         <div className="panel-head">
@@ -1340,7 +1341,7 @@ function RunDetail({
         </span>
       </div>
       <p className="run-hint">
-        {run.experiment?.kind === "question_understanding" ? "질문 이해만 실행하여 문서 검색과 답변 생성은 하지 않아요." : run.experiment?.kind === "search_retrieval" ? "검색 후보만 확인하며 문서 대조와 답변 생성은 하지 않아요." : run.experiment ? "고정 문서 실험은 검색을 실행하지 않아 후보 포함률을 계산하지 않아요." : run.environment === "isolated_spring" ? "Spring은 검색 후보 목록을 반환하지 않아 후보 포함률을 계산하지 않아요." : "기대 근거가 있는 사례만 포함률 분모로 사용해요."} 응답 완료는 정답을 의미하지 않으며 사람의 검수가 필요해요.
+        {run.strategy.startsWith("OpenAI Decisions") ? "세 가지 질문에 대한 확률만 판단하며 대상·기간 추출, 문서 검색과 답변 생성은 하지 않아요. AI 검수는 임시 기준 0.5를 사용했어요." : run.experiment?.kind === "question_understanding" ? "질문 이해만 실행하여 문서 검색과 답변 생성은 하지 않아요." : run.experiment?.kind === "search_retrieval" ? "검색 후보만 확인하며 문서 대조와 답변 생성은 하지 않아요." : run.experiment ? "고정 문서 실험은 검색을 실행하지 않아 후보 포함률을 계산하지 않아요." : run.environment === "isolated_spring" ? "Spring은 검색 후보 목록을 반환하지 않아 후보 포함률을 계산하지 않아요." : "기대 근거가 있는 사례만 포함률 분모로 사용해요."} 응답 완료는 정답을 의미하지 않으며 사람의 검수가 필요해요.
       </p>
       {run.model.includes("(LM Studio)") && <p className="run-hint">기존 실행의 서빙 방식은 기록을 확인해야 해요. 현재 서비스는 vLLM을 사용합니다.</p>}
       <div className="run-grid">
@@ -1401,7 +1402,7 @@ function RunDetail({
             </div>
             {run.experiment && <div className="detail-block">
               <label>단계별 결과·시간·품질</label>
-              <p className="muted">{run.experiment.kind === "question_understanding" ? `질문 이해 ${run.experiment.variant === "A" ? "HTTP" : "Spring AI"}` : run.experiment.kind === "search_retrieval" ? `검색 ${run.experiment.variant}` : `검증 ${run.experiment.variant}`} · 고정 입력 {run.experiment.inputHash.slice(0, 12)} · 모델의 판정과 사람 검수는 별개예요.</p>
+              <p className="muted">{run.experiment.kind === "question_understanding" ? run.strategy.startsWith("OpenAI Decisions") ? "질문 판단 · OpenAI Decisions" : `질문 이해 ${run.experiment.variant === "A" ? "HTTP" : "Spring AI"}` : run.experiment.kind === "search_retrieval" ? `검색 ${run.experiment.variant}` : `검증 ${run.experiment.variant}`} · 고정 입력 {run.experiment.inputHash.slice(0, 12)} · 모델의 판정과 사람 검수는 별개예요.</p>
               {run.experiment.stages.map((stage) => <ExperimentStage key={stage.id} stage={stage} reviews={reviews.filter((review) => review.runId === run.id && review.stageId === stage.id)} busy={busy} separateProvenance={run.experiment?.kind === "question_understanding" || run.experiment?.kind === "search_retrieval"} onReview={(outcome, stageNotes) => onStageReview(stage.id, outcome, stageNotes)} />)}
             </div>}
             <div className="detail-block">

@@ -34,6 +34,7 @@ function duration(ms: number | null) {
 }
 
 function runName(run: Run, index: number) {
+  if (run.experiment?.kind === "question_understanding" && run.strategy.startsWith("OpenAI Decisions")) return `실행 ${index + 1} · OpenAI Decisions`;
   if (run.experiment?.kind === "question_understanding") return `실행 ${index + 1} · ${run.experiment.variant === "A" ? "HTTP" : "Spring AI"} · ${run.strategy.includes("· schema ·") ? "스키마" : "프롬프트"}`;
   if (run.experiment?.kind === "search_retrieval") return `실행 ${index + 1} · ${run.experiment.variant === "A" ? "기존 검색" : "질문 이해 후 검색"}`;
   return run.experiment ? `실행 ${index + 1} · 검증 ${run.experiment.variant}` : `실행 ${index + 1} · 기존 실행`;
