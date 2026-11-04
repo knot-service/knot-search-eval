@@ -28,8 +28,12 @@ async function modelEnv(): Promise<NodeJS.ProcessEnv> {
     const at = line.indexOf("=");
     return [line.slice(0, at).trim(), line.slice(at + 1).trim().replace(/^['"]|['"]$/g, "")];
   }));
-  const base = values.get("LLM_BASE_URL"), token = values.get("LLM_API_TOKEN"), model = values.get("LLM_MODEL");
-  if (!base || !token || !model || new URL(base).protocol !== "https:") throw new Error("실험 모델 설정을 확인하세요.");
+  const override = process.env.QUESTION_LAB_BASE_URL;
+  const base = override ?? values.get("LLM_BASE_URL"), token = values.get("LLM_API_TOKEN"), model = values.get("LLM_MODEL");
+  if (!base || !token || !model) throw new Error("실험 모델 설정을 확인하세요.");
+  const url = new URL(base);
+  const localTunnel = override !== undefined && url.protocol === "http:" && ["127.0.0.1", "localhost", "[::1]"].includes(url.hostname);
+  if (url.protocol !== "https:" && !localTunnel) throw new Error("실험 모델은 HTTPS 또는 명시된 로컬 터널이어야 합니다.");
   return {...process.env, JAVA_HOME: process.env.QUESTION_LAB_JAVA_HOME ?? "/opt/homebrew/opt/openjdk@25/libexec/openjdk.jdk/Contents/Home", LLM_BASE_URL:base, LLM_API_TOKEN:token, LLM_MODEL:model};
 }
 async function runModel(input: object, env: NodeJS.ProcessEnv) {
