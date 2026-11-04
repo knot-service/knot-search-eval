@@ -8,7 +8,7 @@ import { DatasetSchema, RunSchema } from "../lib/schema";
 import { contentHash } from "../lib/state";
 
 const cases = ["S08-01", "S09-01", "S17-01", "S23-01", "S35-01", "S36-01", "S69-01", "S73-01", "S74-01", "QX-01"] as const;
-const resultSchema = z.object({client:z.enum(["http","spring"]),mode:z.enum(["prompt","schema"]),model:z.string(),promptVersion:z.string(),status:z.enum(["completed","failed"]),calls:z.number().nullable(),durationMs:z.number().nonnegative(),output:z.unknown().optional(),error:z.string().optional(),usage:z.object({prompt_tokens:z.number().nullable().optional(),completion_tokens:z.number().nullable().optional()}).optional()});
+const resultSchema = z.object({client:z.enum(["http","spring"]),mode:z.enum(["prompt","schema"]),model:z.string(),promptVersion:z.string(),status:z.enum(["completed","failed"]),calls:z.number().nullable(),durationMs:z.number().nonnegative(),output:z.unknown().optional(),error:z.string().optional(),serverGuard:z.object({modelOutput:z.unknown(),corrections:z.array(z.object({requestIndex:z.number(),field:z.string(),original:z.string(),adjusted:z.string(),reason:z.string()})),durationMs:z.number().nonnegative()}).optional(),usage:z.object({prompt_tokens:z.number().nullable().optional(),completion_tokens:z.number().nullable().optional()}).optional()});
 const pendingDir = resolve(process.cwd(), "../knot/backend/resume/search-improvement/question-understanding-runs");
 const executable = resolve(process.cwd(), "../knot-search-lab/experiments/question-understanding/build/install/question-understanding-experiment/bin/question-understanding-experiment");
 const envPath = resolve(process.cwd(), "../knot-search-lab/.env.search-local");
@@ -91,13 +91,14 @@ async function main() {
         try { measured = await runModel({...variant,input},env); }
         catch (error) { measured = { ...variant,model:env.LLM_MODEL ?? "unknown",promptVersion,status:"failed",calls:null,durationMs:0,error:error instanceof Error ? error.name : "unknown" }; }
         if (measured.promptVersion !== promptVersion) throw new Error("실험기 버전이 일치하지 않습니다. pending 기록을 확인하세요.");
+        if (measured.status === "completed" && !measured.serverGuard) throw new Error("서버 점검 결과가 없습니다. 실험기 빌드와 pending 기록을 확인하세요.");
         const output = measured.output === undefined ? "" : JSON.stringify(measured.output,null,2);
         const duration = measured.durationMs || null;
         const run = RunSchema.parse({id,datasetId:dataset.id,datasetVersion:dataset.version,corpusHash:dataset.corpusHash,
           name:`${caseId} · 질문 이해 ${variant.client} ${variant.mode} · ${startedAt}`,
-          strategy:`질문 이해 ${variant.client} · ${variant.mode} · 반복 ${repetition + 1} · 호출 ${measured.calls ?? "미확인"}`,
-          environment:"direct_model",model:measured.model,revision:promptVersion,startedAt,status:measured.status,
-          experiment:{kind:"question_understanding",variant:variant.client === "http" ? "A" : "B",inputHash:hash,promptVersion,stages:[{id:"question_understanding",label:"질문 이해",status:measured.status,durationMs:duration,result:output || measured.error || "결과 없음",inputTokens:measured.usage?.prompt_tokens ?? null,outputTokens:measured.usage?.completion_tokens ?? null}]},
+          strategy:`질문 이해 ${variant.client} · ${variant.mode} · 회의 보정 v1 · 반복 ${repetition + 1} · 호출 ${measured.calls ?? "미확인"}`,
+          environment:"direct_model",model:measured.model,revision:`${promptVersion}-meeting-guard-v1`,startedAt,status:measured.status,
+          experiment:{kind:"question_understanding",variant:variant.client === "http" ? "A" : "B",inputHash:hash,promptVersion,stages:[{id:"question_understanding",label:"질문 이해",status:measured.status,durationMs:duration,result:output || measured.error || "결과 없음",inputTokens:measured.usage?.prompt_tokens ?? null,outputTokens:measured.usage?.completion_tokens ?? null},{id:"server_guard",label:"서버 조건 점검",status:measured.serverGuard ? "completed" : "not_run",durationMs:measured.serverGuard?.durationMs ?? null,result:measured.serverGuard ? JSON.stringify({modelOutput:measured.serverGuard.modelOutput,corrections:measured.serverGuard.corrections},null,2) : "모델 결과 없음",inputTokens:null,outputTokens:null}]},
           results:[{caseId,status:measured.status,candidates:[],answer:output,evidenceIds:[],latencyMs:duration,error:measured.status === "failed" ? measured.error ?? "실험 실패" : null}]});
         await writeFile(pendingPath,JSON.stringify({run,state:"pending",calls:measured.calls},null,2),{mode:0o600});
         await mutateState({type:"import_run",data:run});
