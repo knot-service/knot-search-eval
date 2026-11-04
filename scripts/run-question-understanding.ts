@@ -7,13 +7,20 @@ import { mutateState, readState } from "../lib/db";
 import { DatasetSchema, RunSchema } from "../lib/schema";
 import { contentHash } from "../lib/state";
 
-const cases = ["S08-01", "S09-01", "S17-01", "S23-01", "S35-01", "S36-01", "S69-01", "S73-01", "S74-01", "QX-01"] as const;
+const guardCases = ["QG-01", "QG-02", "QG-03", "QG-04"] as const;
+const cases = ["S08-01", "S09-01", "S17-01", "S23-01", "S35-01", "S36-01", "S69-01", "S73-01", "S74-01", "QX-01", ...guardCases] as const;
 const resultSchema = z.object({client:z.enum(["http","spring"]),mode:z.enum(["prompt","schema"]),model:z.string(),promptVersion:z.string(),status:z.enum(["completed","failed"]),calls:z.number().nullable(),durationMs:z.number().nonnegative(),output:z.unknown().optional(),error:z.string().optional(),serverGuard:z.object({modelOutput:z.unknown(),corrections:z.array(z.object({requestIndex:z.number(),field:z.string(),original:z.string(),adjusted:z.string(),reason:z.string()})),durationMs:z.number().nonnegative()}).optional(),usage:z.object({prompt_tokens:z.number().nullable().optional(),completion_tokens:z.number().nullable().optional()}).optional()});
 const pendingDir = resolve(process.cwd(), "../knot/backend/resume/search-improvement/question-understanding-runs");
 const executable = resolve(process.cwd(), "../knot-search-lab/experiments/question-understanding/build/install/question-understanding-experiment/bin/question-understanding-experiment");
 const envPath = resolve(process.cwd(), "../knot-search-lab/.env.search-local");
 const promptVersion = "question-understanding-v7";
 const contractFixture = DatasetSchema.parse({id:"question-contract-fixtures",name:"질문 이해 계약 · 추가 합성 사례",version:"1.0",source:"synthetic",corpusHash:"question-contract-no-documents-v1",cases:[{id:"QX-01",scenario:"복합 질문",category:"질문 이해",question:"지난주 결제 회의의 담당자와 이번 달 로그인 회의의 결정 사항을 알려줘.",history:[],documents:[],expectedType:"answer",expectedBehavior:"결제 회의 담당자에는 지난주를, 로그인 회의 결정 사항에는 이번 달을 각각 적용한다.",expectedEvidenceIds:[],evaluationTime:"2026-10-29T03:00:00.000Z"}]});
+const guardFixture = DatasetSchema.parse({id:"question-guard-fixtures",name:"질문 이해 · 회의 보정 반대 사례",version:"1.0",source:"synthetic",corpusHash:"question-guard-no-documents-v1",cases:[
+  {id:"QG-01",scenario:"암시된 모임",category:"질문 이해",question:"그거 담당자는?",history:[{role:"user",content:"지난주 결제 킥오프에서 결정된 내용 알려줘."},{role:"assistant",content:"결제 취소 기능을 출시하기로 했어요."}],documents:[],expectedType:"answer",expectedBehavior:"지난주 결제 킥오프의 결제 취소 기능 맥락을 유지하고 담당자를 찾는다.",expectedEvidenceIds:[],evaluationTime:"2026-10-29T03:00:00.000Z"},
+  {id:"QG-02",scenario:"복합 질문",category:"질문 이해",question:"배포 회의 결정 사항과 결제 기능 담당자를 알려줘.",history:[],documents:[],expectedType:"answer",expectedBehavior:"배포 회의와 결제 기능을 분리하며 결제 기능에 명시되지 않은 회의를 필수 조건으로 추가하지 않는다.",expectedEvidenceIds:[],evaluationTime:"2026-10-29T03:00:00.000Z"},
+  {id:"QG-03",scenario:"문서 유형",category:"질문 이해",question:"결제 회의록 목록 보여줘.",history:[],documents:[],expectedType:"answer",expectedBehavior:"사용자가 명시한 회의록 유형과 목록 요청을 유지한다.",expectedEvidenceIds:[],evaluationTime:"2026-10-29T03:00:00.000Z"},
+  {id:"QG-04",scenario:"명시된 미팅",category:"질문 이해",question:"지난주 결제 미팅 담당자는?",history:[],documents:[],expectedType:"answer",expectedBehavior:"결제 미팅과 지난주 조건을 유지하고 담당자를 찾는다.",expectedEvidenceIds:[],evaluationTime:"2026-10-29T03:00:00.000Z"}
+]});
 
 async function modelEnv(): Promise<NodeJS.ProcessEnv> {
   const content = await readFile(envPath, "utf8");
@@ -59,6 +66,15 @@ async function main() {
       throw new Error("추가 합성 사례의 고정 버전이 일치하지 않습니다.");
     }
   }
+  if (selected === "all" || guardCases.some(id => id === selected)) {
+    const existing = state.datasets.find(d => d.id === guardFixture.id && d.version === guardFixture.version);
+    if (!existing) {
+      await mutateState({type:"import_dataset",data:guardFixture});
+      state = await mutateState({type:"lock_dataset",id:guardFixture.id,version:guardFixture.version});
+    } else if (!existing.locked || existing.contentHash !== contentHash(guardFixture)) {
+      throw new Error("회의 보정 사례의 고정 버전이 일치하지 않습니다.");
+    }
+  }
   const env = await modelEnv();
   await mkdir(pendingDir,{recursive:true,mode:0o700});
   for (const file of (await readdir(pendingDir)).filter(name => name.endsWith(".json"))) {
@@ -72,7 +88,7 @@ async function main() {
     await unlink(path);
   }
   for (const caseId of (selected === "all" ? cases : [selected])) {
-    const dataset = state.datasets.find(d => caseId === "QX-01" ? d.id === contractFixture.id && d.version === contractFixture.version && d.locked : d.id === "knot-workspace-458" && d.version === "1.30" && d.locked);
+    const dataset = state.datasets.find(d => caseId === "QX-01" ? d.id === contractFixture.id && d.version === contractFixture.version && d.locked : guardCases.some(id => id === caseId) ? d.id === guardFixture.id && d.version === guardFixture.version && d.locked : d.id === "knot-workspace-458" && d.version === "1.30" && d.locked);
     if (!dataset?.corpusHash) throw new Error("잠긴 평가셋과 문서 버전이 필요합니다.");
     const item = dataset.cases.find(entry => entry.id === caseId);
     if (!item) throw new Error(`사례를 찾지 못했습니다: ${caseId}`);
