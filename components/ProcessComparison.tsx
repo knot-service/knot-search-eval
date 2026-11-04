@@ -36,13 +36,14 @@ function duration(ms: number | null) {
 function runName(run: Run, index: number) {
   if (run.experiment?.kind === "question_understanding" && run.strategy.startsWith("OpenAI Decisions")) return `실행 ${index + 1} · OpenAI Decisions`;
   if (run.experiment?.kind === "question_understanding") return `실행 ${index + 1} · ${run.experiment.variant === "A" ? "HTTP" : "Spring AI"} · ${run.strategy.includes("· schema ·") ? "스키마" : "프롬프트"}`;
+  if (run.experiment?.kind === "search_retrieval" && run.revision === "condition-impact-v1") return `실행 ${index + 1} · ${run.experiment.variant === "A" ? "모델 원본" : "서버 보정"}`;
   if (run.experiment?.kind === "search_retrieval") return `실행 ${index + 1} · ${run.experiment.variant === "A" ? "기존 검색" : "질문 이해 후 검색"}`;
   return run.experiment ? `실행 ${index + 1} · 검증 ${run.experiment.variant}` : `실행 ${index + 1} · 기존 실행`;
 }
 
 function modelCallMetric(run: Run) {
   if (run.experiment?.kind === "question_understanding") return {value: run.strategy.includes("· 호출 1") ? "1회" : "미수집", detail: "실제 기록된 호출 수"};
-  if (run.experiment?.kind === "search_retrieval") return {value:"0회",detail:run.experiment.variant === "B" ? "기존 모델 결과 재사용" : "원 질문 검색"};
+  if (run.experiment?.kind === "search_retrieval") return {value:"0회",detail:run.revision === "condition-impact-v1" || run.experiment.variant === "B" ? "기존 모델 결과 재사용" : "원 질문 검색"};
   const stages = run.experiment?.stages.filter(stage => modelStages.has(stage.id) && (stage.status === "completed" || stage.status === "failed")) ?? [];
   return stages.length ? {value:`${stages.length}회`,detail:"실행·실패 단계 기준"} : {value:"미수집"};
 }
