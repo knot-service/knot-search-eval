@@ -56,7 +56,8 @@ async function main() {
   const selected = process.argv[2] ?? "S08-01";
   const repeats = Number(process.argv[3] ?? "1");
   const compact = process.argv[4] === "compact";
-  const timing = process.argv[4] === "timing" || compact;
+  const audit = process.argv[4] === "condition-audit";
+  const timing = process.argv[4] === "timing" || compact || audit;
   if (process.argv[4] && !timing) throw new Error("실험 모드가 올바르지 않습니다.");
   if (!(selected === "all" || cases.some(id => id === selected)) || !Number.isInteger(repeats) || repeats < 1 || repeats > 3) throw new Error("사용법: 사례 ID 또는 all, 반복 횟수 1~3");
   let state = await readState();
@@ -115,9 +116,9 @@ async function main() {
         const duration = measured.durationMs || null;
         const run = RunSchema.parse({id,datasetId:dataset.id,datasetVersion:dataset.version,corpusHash:dataset.corpusHash,
           name:`${caseId} · 질문 이해 ${variant.client} ${variant.mode} · ${startedAt}`,
-          strategy:`질문 이해 ${variant.client} · ${variant.mode} · ${compact ? "축약 JSON" : timing ? "스트리밍 시간 측정" : "회의 보정 v1"} · 반복 ${repetition + 1} · 호출 ${measured.calls ?? "미확인"}`,
-          environment:"direct_model",model:measured.model,revision:`${promptVersion}-${compact ? "compact-v1" : timing ? "stream-timing-v1" : "meeting-guard-v1"}`,startedAt,status:measured.status,
-          experiment:{kind:"question_understanding",variant:variant.client === "http" ? "A" : "B",inputHash:hash,promptVersion:compact ? `${promptVersion}-compact-v1` : timing ? `${promptVersion}-stream-timing-v1` : promptVersion,stages:[{id:"question_understanding",label:"질문 이해",status:measured.status,durationMs:duration,result:output || measured.error || "결과 없음",inputTokens:measured.usage?.prompt_tokens ?? null,outputTokens:measured.usage?.completion_tokens ?? null},...(measured.compactOutput !== undefined ? [{id:"compact_output",label:"축약 원본 JSON",status:"completed" as const,durationMs:null,result:JSON.stringify(measured.compactOutput,null,2),inputTokens:null,outputTokens:null}] : []),...(measured.timings ? [
+          strategy:`질문 이해 ${variant.client} · ${variant.mode} · ${audit ? "조건 대조 실험" : compact ? "축약 JSON" : timing ? "스트리밍 시간 측정" : "회의 보정 v1"} · 반복 ${repetition + 1} · 호출 ${measured.calls ?? "미확인"}`,
+          environment:"direct_model",model:measured.model,revision:`${promptVersion}-${audit ? "condition-audit-v1" : compact ? "compact-v1" : timing ? "stream-timing-v1" : "meeting-guard-v1"}`,startedAt,status:measured.status,
+          experiment:{kind:"question_understanding",variant:variant.client === "http" ? "A" : "B",inputHash:hash,promptVersion:audit ? `${promptVersion}-condition-audit-v1` : compact ? `${promptVersion}-compact-v1` : timing ? `${promptVersion}-stream-timing-v1` : promptVersion,stages:[{id:"question_understanding",label:"질문 이해",status:measured.status,durationMs:duration,result:output || measured.error || "결과 없음",inputTokens:measured.usage?.prompt_tokens ?? null,outputTokens:measured.usage?.completion_tokens ?? null},...(measured.compactOutput !== undefined ? [{id:"compact_output",label:"축약 원본 JSON",status:"completed" as const,durationMs:null,result:JSON.stringify(measured.compactOutput,null,2),inputTokens:null,outputTokens:null}] : []),...(measured.timings ? [
             {id:"client_preparation",label:"클라이언트·요청 준비",status:"completed" as const,durationMs:measured.timings.clientPreparationMs,result:"Java 프로세스 기동 이후 요청과 클라이언트 준비",inputTokens:null,outputTokens:null},
             {id:"response_headers",label:"응답 헤더까지",status:"completed" as const,durationMs:measured.timings.responseHeadersMs,result:"요청 전송부터 HTTP 헤더까지. 연결·네트워크·서버 대기를 분리하지 않음. 첫 내용까지 시간에 포함됨.",inputTokens:null,outputTokens:null},
             {id:"first_content",label:"첫 내용까지",status:"completed" as const,durationMs:measured.timings.firstContentMs,result:"요청 전송부터 첫 비어 있지 않은 콘텐츠 델타까지. 서버 TTFT 단독 측정 아님.",inputTokens:null,outputTokens:null},
