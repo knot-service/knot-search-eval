@@ -144,6 +144,10 @@ export function Dashboard() {
     [runSearch, setRunSearch] = useState(""),
     [runVersion, setRunVersion] = useState("all"),
     [runSpace, setRunSpace] = useState<ExperimentSpace>("all"),
+    [compareSpace, setCompareSpace] = useState<ExperimentSpace>("all"),
+    [compareVersion, setCompareVersion] = useState("all"),
+    [compareRevision, setCompareRevision] = useState("all"),
+    [compareSearch, setCompareSearch] = useState(""),
     [runRevision, setRunRevision] = useState("all"),
     [runLimit, setRunLimit] = useState(20),
     [localAccess, setLocalAccess] = useState(false);
@@ -251,8 +255,12 @@ export function Dashboard() {
     filtered.find(
       (c) => `${c.datasetId}:${c.datasetVersion}:${c.id}` === selected,
     ) ?? filtered[0];
-  const runA = runs.find((r) => r.id === left) ?? runs[0],
-    runB = runs.find((r) => r.id === right) ?? runs[1];
+  const compareRuns = [...runs].reverse().filter((run) => belongsToSpace(run, compareSpace)
+    && (compareVersion === "all" || `${run.datasetId}:${run.datasetVersion}` === compareVersion)
+    && (compareRevision === "all" || run.experiment?.promptVersion === compareRevision)
+    && `${run.name} ${run.results.map(result => result.caseId).join(" ")}`.toLowerCase().includes(compareSearch.toLowerCase()));
+  const runA = compareRuns.find((r) => r.id === left) ?? compareRuns[0],
+    runB = compareRuns.find((r) => r.id === right) ?? compareRuns.find(r => r.id !== runA?.id);
   async function seed() {
     if (!(await action({ type: "import_dataset", data: sampleDataset })))
       return;
@@ -744,7 +752,8 @@ export function Dashboard() {
                     </button>)}
                   </nav>
                   {runSpace === "question" && <div className="lab-space-note"><strong>질문 이해 실험</strong><span>실험 결과와 검수 내역을 확인해요. 새 실험은 현재 로컬 실행기로 시작합니다.</span></div>}
-                  {(runSpace === "retrieval" || runSpace === "document") && <div className="lab-space-note"><strong>실험 기록 준비 중</strong><span>이 단계만 따로 실행하고 기록하는 기능은 아직 구현되지 않았어요.</span></div>}
+                  {runSpace === "document" && <div className="lab-space-note"><strong>실험 기록 준비 중</strong><span>이 단계만 따로 실행하고 기록하는 기능은 아직 구현되지 않았어요.</span></div>}
+                  {runSpace === "retrieval" && <div className="lab-space-note"><strong>검색 준비·검색 실험</strong><span>로컬 실험기에서 기록한 검색 후보와 적용 조건을 비교해요. 후보는 답변 근거가 아닙니다.</span></div>}
                   {(runSpace === "all" || runSpace === "existing") && <div className="panel lab-setup">
                     <div>
                       <strong>Spring 탐색 실험</strong>
@@ -871,7 +880,7 @@ export function Dashboard() {
                         if (!current) return;
                         const previous = [...runs].reverse().find((x) => x.id !== current.id && x.datasetId === current.datasetId && x.datasetVersion === current.datasetVersion && x.corpusHash === current.corpusHash && x.startedAt < current.startedAt && x.results.some((result) => current.results.some((item) => item.caseId === result.caseId)) && (!current.experiment && !x.experiment || Boolean(current.experiment && x.experiment && current.experiment.inputHash === x.experiment.inputHash && current.experiment.variant === x.experiment.variant && current.model === x.model)));
                         if (!previous) { setError("같은 입력과 방식의 이전 결과가 없어요."); return; }
-                        setLeft(previous.id); setRight(current.id); go("compare");
+                        setCompareSpace("all"); setCompareVersion("all"); setCompareRevision("all"); setCompareSearch(""); setLeft(previous.id); setRight(current.id); go("compare");
                       }}
                       onReview={async (outcome) => {
                         const r = activeRun;
@@ -902,6 +911,17 @@ export function Dashboard() {
                       <p>같은 평가셋과 문서 기준의 결과를 나란히 살펴봐요.</p>
                     </div>
                   </div>
+                  <nav className="experiment-spaces" aria-label="비교할 워크플로우">
+                    {experimentSpaces.map((space) => <button key={space.id} className={`experiment-space ${compareSpace === space.id ? "selected" : ""}`} aria-pressed={compareSpace === space.id} onClick={() => { setCompareSpace(space.id); setCompareVersion("all"); setCompareRevision("all"); setCompareSearch(""); setLeft(""); setRight(""); }}>
+                      <span className="experiment-space-top"><strong>{space.label}</strong><span>{space.planned ? "준비 중" : runs.filter(run => belongsToSpace(run, space.id)).length}</span></span>
+                      <small>{space.description}</small>
+                    </button>)}
+                  </nav>
+                  <div className="compare-select">
+                    <label>평가셋 버전<select value={compareVersion} onChange={(e) => { setCompareVersion(e.target.value); setLeft(""); setRight(""); }}><option value="all">모든 평가셋</option>{runVersions.map(version => <option key={version} value={version}>{version.replace(":", " · v")}</option>)}</select></label>
+                    <label>실험 방식 버전<select value={compareRevision} onChange={(e) => { setCompareRevision(e.target.value); setLeft(""); setRight(""); }}><option value="all">모든 실험 방식</option>{[...new Set(runs.filter(run => belongsToSpace(run, compareSpace)).map(run => run.experiment?.promptVersion).filter((version): version is string => Boolean(version)))].sort().map(version => <option key={version} value={version}>{version}</option>)}</select></label>
+                    <label>실험 검색<input type="search" value={compareSearch} placeholder="사례 ID 또는 실행 이름" onChange={(e) => { setCompareSearch(e.target.value); setLeft(""); setRight(""); }} /></label>
+                  </div>
                   <div className="compare-select">
                     <label>
                       기준 실험
@@ -909,7 +929,7 @@ export function Dashboard() {
                         value={runA?.id ?? ""}
                         onChange={(e) => setLeft(e.target.value)}
                       >
-                        {runs.map((r) => (
+                        {compareRuns.map((r) => (
                           <option key={r.id} value={r.id}>
                             {koreaTimeInText(r.name)}
                           </option>
@@ -923,7 +943,7 @@ export function Dashboard() {
                         value={runB?.id ?? ""}
                         onChange={(e) => setRight(e.target.value)}
                       >
-                        {runs.map((r) => (
+                        {compareRuns.map((r) => (
                           <option key={r.id} value={r.id}>
                             {koreaTimeInText(r.name)}
                           </option>
@@ -935,7 +955,7 @@ export function Dashboard() {
                     <Comparison a={runA} b={runB} cases={allCases} reviews={reviews} />
                   ) : (
                     <div className="panel empty">
-                      비교하려면 실험 결과 2개를 가져오세요.
+                      선택한 조건에 비교할 실험 결과가 2개 이상 필요해요.
                     </div>
                   )}
                 </>
@@ -1203,7 +1223,7 @@ function Result({ result, candidateAvailable, experimentKind }: { result: Run["r
           </span>
           <p>{result.answer || result.error || "답변 없음"}</p>
           <small>
-            후보 {experimentKind === "question_understanding" ? "해당 없음 (검색 미실행)" : experimentKind ? "해당 없음 (고정 문서)" : candidateAvailable ? result.candidates.join(", ") || "없음" : "미수집"} · {experimentKind === "question_understanding" ? "근거 미확인" : experimentKind ? "모델이 제시한 근거 후보" : "근거"}{" "}
+            후보 {experimentKind === "search_retrieval" ? result.candidates.join(", ") || "없음" : experimentKind === "question_understanding" ? "해당 없음 (검색 미실행)" : experimentKind ? "해당 없음 (고정 문서)" : candidateAvailable ? result.candidates.join(", ") || "없음" : "미수집"} · {experimentKind === "question_understanding" || experimentKind === "search_retrieval" ? "근거 미확인" : experimentKind ? "모델이 제시한 근거 후보" : "근거"}{" "}
             {result.evidenceIds.join(", ") || "없음"} ·{" "}
             {result.latencyMs === null ? "시간 없음" : `${result.latencyMs}ms`}
           </small>
@@ -1315,12 +1335,12 @@ function RunDetail({
         <span>
           기대 근거 후보 포함{" "}
           <strong>
-            {run.experiment ? "해당 없음" : run.environment === "isolated_spring" ? "미수집" : `${hits} / ${withEvidence.length}`}
+            {run.experiment?.kind === "search_retrieval" ? `${hits} / ${withEvidence.length}` : run.experiment ? "해당 없음" : run.environment === "isolated_spring" ? "미수집" : `${hits} / ${withEvidence.length}`}
           </strong>
         </span>
       </div>
       <p className="run-hint">
-        {run.experiment?.kind === "question_understanding" ? "질문 이해만 실행하여 문서 검색과 답변 생성은 하지 않아요." : run.experiment ? "고정 문서 실험은 검색을 실행하지 않아 후보 포함률을 계산하지 않아요." : run.environment === "isolated_spring" ? "Spring은 검색 후보 목록을 반환하지 않아 후보 포함률을 계산하지 않아요." : "기대 근거가 있는 사례만 포함률 분모로 사용해요."} 응답 완료는 정답을 의미하지 않으며 사람의 검수가 필요해요.
+        {run.experiment?.kind === "question_understanding" ? "질문 이해만 실행하여 문서 검색과 답변 생성은 하지 않아요." : run.experiment?.kind === "search_retrieval" ? "검색 후보만 확인하며 문서 대조와 답변 생성은 하지 않아요." : run.experiment ? "고정 문서 실험은 검색을 실행하지 않아 후보 포함률을 계산하지 않아요." : run.environment === "isolated_spring" ? "Spring은 검색 후보 목록을 반환하지 않아 후보 포함률을 계산하지 않아요." : "기대 근거가 있는 사례만 포함률 분모로 사용해요."} 응답 완료는 정답을 의미하지 않으며 사람의 검수가 필요해요.
       </p>
       {run.model.includes("(LM Studio)") && <p className="run-hint">기존 실행의 서빙 방식은 기록을 확인해야 해요. 현재 서비스는 vLLM을 사용합니다.</p>}
       <div className="run-grid">
@@ -1364,7 +1384,7 @@ function RunDetail({
               {result.privacyLogObserved && <p className="muted">합성 개인정보 로그 관측: {result.privacyLogObserved === 'exposed' ? '노출 감지' : result.privacyLogObserved === 'not_observed' ? '관측된 로그에서 노출 없음' : '확인할 수 없음'} (해당 실행의 로그만 확인)</p>}
               {result.answer && result.error && <p className="run-error">오류: {result.error}</p>}
               <p className="muted">
-                후보 {run.experiment?.kind === "question_understanding" ? "해당 없음 (검색 미실행)" : run.experiment ? "해당 없음 (고정 문서)" : run.environment === "isolated_spring" ? "미수집" : result.candidates.join(", ") || "없음"} · {run.experiment?.kind === "question_understanding" ? "근거 미확인" : run.experiment ? "모델이 제시한 근거 후보" : "근거"}{" "}
+                후보 {run.experiment?.kind === "search_retrieval" ? result.candidates.join(", ") || "없음" : run.experiment?.kind === "question_understanding" ? "해당 없음 (검색 미실행)" : run.experiment ? "해당 없음 (고정 문서)" : run.environment === "isolated_spring" ? "미수집" : result.candidates.join(", ") || "없음"} · {run.experiment?.kind === "search_retrieval" || run.experiment?.kind === "question_understanding" ? "근거 미확인" : run.experiment ? "모델이 제시한 근거 후보" : "근거"}{" "}
                 {result.evidenceIds.join(", ") || "없음"} ·{" "}
                 {result.latencyMs === null ? "시간 없음" : `${result.latencyMs}ms`}
               </p>
@@ -1381,8 +1401,8 @@ function RunDetail({
             </div>
             {run.experiment && <div className="detail-block">
               <label>단계별 결과·시간·품질</label>
-              <p className="muted">{run.experiment.kind === "question_understanding" ? `질문 이해 ${run.experiment.variant === "A" ? "HTTP" : "Spring AI"}` : `검증 ${run.experiment.variant}`} · 고정 입력 {run.experiment.inputHash.slice(0, 12)} · 모델의 판정과 사람 검수는 별개예요.</p>
-              {run.experiment.stages.map((stage) => <ExperimentStage key={stage.id} stage={stage} reviews={reviews.filter((review) => review.runId === run.id && review.stageId === stage.id)} busy={busy} separateProvenance={run.experiment?.kind === "question_understanding"} onReview={(outcome, stageNotes) => onStageReview(stage.id, outcome, stageNotes)} />)}
+              <p className="muted">{run.experiment.kind === "question_understanding" ? `질문 이해 ${run.experiment.variant === "A" ? "HTTP" : "Spring AI"}` : run.experiment.kind === "search_retrieval" ? `검색 ${run.experiment.variant}` : `검증 ${run.experiment.variant}`} · 고정 입력 {run.experiment.inputHash.slice(0, 12)} · 모델의 판정과 사람 검수는 별개예요.</p>
+              {run.experiment.stages.map((stage) => <ExperimentStage key={stage.id} stage={stage} reviews={reviews.filter((review) => review.runId === run.id && review.stageId === stage.id)} busy={busy} separateProvenance={run.experiment?.kind === "question_understanding" || run.experiment?.kind === "search_retrieval"} onReview={(outcome, stageNotes) => onStageReview(stage.id, outcome, stageNotes)} />)}
             </div>}
             <div className="detail-block">
               <label>{run.experiment?.kind === "question_understanding" ? "참고: 전체 답변의 기대 동작" : "기대 동작"}</label>
