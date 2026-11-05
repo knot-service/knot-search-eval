@@ -61,6 +61,13 @@ function modelLabel(model: string) {
     ? model.replace("(LM Studio)", "(서빙 기록 확인 필요)")
     : model;
 }
+function runDisplayTitle(name: string) {
+  const title = name.replace(
+    /\s*·\s*(?:\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z|\d{4}\.\s*\d{1,2}\.\s*\d{1,2}\.\s*\d{1,2}시\s*\d{1,2}분(?:\s*\d{1,2}초)?)(?:\s*\(한국 시간\))?$/,
+    "",
+  );
+  return koreaTimeInText(title);
+}
 const stageLabels: Record<string, string> = {
   queue_wait:"작업 대기", intent_classification:"질문 의도 분류", document_retrieval:"문서 검색",
   answer_generation:"답변 생성", llm_first_content:"모델 첫 내용까지", content_persistence:"답변 내용 저장 누적", worker_total:"백엔드 작업 전체",
@@ -827,39 +834,45 @@ export function Dashboard() {
                         )}
                     </div>
                     {visibleRuns.length ? (
-                      visibleRuns.slice(0, runLimit).map((r) => (
-                        <button
-                          className={`experiment ${activeRun?.id === r.id ? "selected" : ""}`}
-                          key={r.id}
-                          aria-pressed={activeRun?.id === r.id}
-                          onClick={() => {
-                            setOpenRun(r.id);
-                            setReviewCase("");
-                            setRunNotes("");
-                            if (window.matchMedia("(max-width: 900px)").matches) {
-                              requestAnimationFrame(() => document.getElementById("run-detail")?.scrollIntoView({ behavior: "smooth", block: "start" }));
-                            }
-                          }}
-                        >
-                          <span className="file-icon">
-                            <FlaskConical size={18} />
-                          </span>
-                          <div className="row-main">
-                            <strong>{koreaTimeInText(r.name)}</strong>
-                            <small>
-                              {r.datasetId} v{r.datasetVersion} ·{" "}
-                              {r.environment} · {modelLabel(r.model)}
-                            </small>
-                          </div>
-                          <span className="muted">
-                            {r.results.length}개 사례
-                          </span>
-                          <span className="badge neutral">
-                            {labels[r.status]}
-                          </span>
-                          <ChevronRight size={15} />
-                        </button>
-                      ))
+                      visibleRuns.slice(0, runLimit).map((r) => {
+                        const startedAtKorea = formatKoreaRunTime(r.startedAt);
+                        return (
+                          <button
+                            className={`experiment ${activeRun?.id === r.id ? "selected" : ""}`}
+                            key={r.id}
+                            aria-pressed={activeRun?.id === r.id}
+                            onClick={() => {
+                              setOpenRun(r.id);
+                              setReviewCase("");
+                              setRunNotes("");
+                              if (window.matchMedia("(max-width: 900px)").matches) {
+                                requestAnimationFrame(() => document.getElementById("run-detail")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+                              }
+                            }}
+                          >
+                            <span className="file-icon">
+                              <FlaskConical size={18} />
+                            </span>
+                            <div className="row-main">
+                              <strong>{runDisplayTitle(r.name)}</strong>
+                              <small>
+                                {r.datasetId} v{r.datasetVersion} ·{" "}
+                                {r.environment} · {modelLabel(r.model)}
+                              </small>
+                              <small className="run-start-time">
+                                실험 시각 · {startedAtKorea ?? "시간 미수집"} (서울 시간)
+                              </small>
+                            </div>
+                            <span className="muted">
+                              {r.results.length}개 사례
+                            </span>
+                            <span className="badge neutral">
+                              {labels[r.status]}
+                            </span>
+                            <ChevronRight size={15} />
+                          </button>
+                        );
+                      })
                     ) : (
                       <div className="empty">{runSpace === "retrieval" || runSpace === "document" ? "이 단계의 별도 실험은 아직 없어요." : runs.length ? "검색한 실험이 없어요." : "아직 실험이 없어요."}</div>
                     )}
@@ -1319,7 +1332,7 @@ function RunDetail({
     <section id="run-detail" className="panel run-detail" aria-label="선택한 실험 결과">
       <div className="panel-head">
         <div>
-          <h2>{koreaTimeInText(run.name)}</h2>
+          <h2>{runDisplayTitle(run.name)}</h2>
           <p>
             {koreaTimeInText(run.strategy)} · {run.environment} · {modelLabel(run.model)} · {run.revision}
           </p>
