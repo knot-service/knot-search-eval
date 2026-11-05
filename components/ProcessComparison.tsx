@@ -1,4 +1,5 @@
 "use client";
+import { StageResult } from "./StageResult";
 
 import { Activity, Check, ChevronDown, Circle, Clock3, Minus, X } from "lucide-react";
 import type { DataState, Review, Run } from "../lib/schema";
@@ -85,7 +86,7 @@ function TimelineStep({ stage, review, split, index, last }: { stage: Stage; rev
           {review && !split && <div className="tw:mt-1.5 tw:break-words tw:text-xs tw:text-slate-500">{review.reviewer}</div>}
           <CollapsibleContent className="tw:mt-3 tw:overflow-hidden tw:rounded-lg tw:bg-slate-50 tw:p-3 tw:text-xs tw:text-slate-600">
             <div className="tw:font-semibold tw:text-slate-700">단계 결과</div>
-            <pre className="tw:mt-2 tw:max-h-64 tw:overflow-auto tw:whitespace-pre-wrap tw:break-words tw:font-sans tw:leading-relaxed">{stage.result || "기록된 결과 없음"}</pre>
+            <StageResult value={stage.result || "기록된 결과 없음"} />
             <div className="tw:mt-3 tw:flex tw:flex-wrap tw:gap-x-4 tw:gap-y-1 tw:border-0 tw:border-t tw:border-solid tw:border-slate-200 tw:pt-3"><span>입력 토큰: {stage.inputTokens === null ? "미수집" : stage.inputTokens.toLocaleString("ko-KR")}</span><span>출력 토큰: {stage.outputTokens === null ? "미수집" : stage.outputTokens.toLocaleString("ko-KR")}</span></div>
             {(split ? [split.ai,split.human,split.unknown].filter((item): item is Review => Boolean(item)) : review ? [review] : []).map(item => <div key={item.id} className="tw:mt-3 tw:break-words"><strong>검수 · {item.reviewer}</strong><p>{item.notes || "검수 의견 없음"}</p></div>)}
           </CollapsibleContent>

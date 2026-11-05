@@ -1111,3 +1111,10 @@ footer span {
 .lab-space-note strong { color:#312e81; }
 @media (max-width:850px) { .experiment-spaces { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media (max-width:420px) { .experiment-space { padding:12px; } }
+
+.stage-result-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.stage-json { margin-top: 12px; min-width: 0; max-width: 100%; border: 1px solid #dfe3eb; border-radius: 10px; overflow: hidden; background: #f7f8fb; }
+.stage-json-header { display: flex; justify-content: space-between; gap: 12px; padding: 9px 12px; color: #65718a; background: #eef1f7; font-size: 12px; font-weight: 600; }
+.stage-json pre { margin: 0; max-height: 360px; overflow: auto; padding: 14px; color: #25314a; font: 12px/1.65 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; }
+.stage-json details { border-top: 1px solid #dfe3eb; }
+.stage-json summary { cursor: pointer; padding: 9px 12px; color: #53627d; font-size: 12px; }

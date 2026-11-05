@@ -1,4 +1,5 @@
 "use client";
+import { StageResult } from "./StageResult";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   LayoutDashboard,
@@ -1248,7 +1249,7 @@ function ExperimentStage({stage, reviews, busy, onReview, separateProvenance}: {
   const status = {completed:"실행됨",failed:"실패",not_applicable:"해당 없음",not_run:"미실행"}[stage.status];
   return <section className="detail-block" aria-label={`${stage.label} 단계`}>
     <strong>{stage.label}</strong> <span className="muted">· {status} · {stage.durationMs === null ? "시간 미수집" : `${stage.durationMs.toLocaleString("ko-KR")}ms`}</span>
-    <pre style={{whiteSpace:"pre-wrap",overflowWrap:"anywhere"}}>{stage.result}</pre>
+    <StageResult value={stage.result} />
     <small>입력 토큰 {stage.inputTokens ?? "미수집"} · 출력 토큰 {stage.outputTokens ?? "미수집"}</small>
     {separateProvenance ? <div>
       <p>AI 검수: {grouped.ai ? labels[grouped.ai.outcome] : "미검수"}</p>
