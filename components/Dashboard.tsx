@@ -22,7 +22,7 @@ import { latestWorkspaceDataset } from "../lib/latest-workspace-dataset";
 import { latestCaseReviews, summarizeDatasetReviews } from "../lib/review-summary";
 import { latestReviewsByProvenance } from "../lib/review-provenance";
 import { belongsToSpace, experimentSpaces, type ExperimentSpace } from "../lib/experiment-spaces";
-import { koreaTimeInText } from "../lib/korea-time";
+import { formatKoreaRunTime, koreaTimeInText } from "../lib/korea-time";
 import { CaseSchema } from "../lib/schema";
 import { RunReviews } from "./RunReviews";
 import { ProcessComparison } from "./ProcessComparison";
@@ -1294,6 +1294,7 @@ function RunDetail({
       x.datasetVersion === run.datasetVersion,
   );
   const failures = run.results.filter((r) => r.status !== "completed").length;
+  const startedAtKorea = formatKoreaRunTime(run.startedAt);
   const withEvidence = run.results.filter(
     (r) =>
       cases.find(
@@ -1321,6 +1322,7 @@ function RunDetail({
           <p>
             {koreaTimeInText(run.strategy)} · {run.environment} · {modelLabel(run.model)} · {run.revision}
           </p>
+          <p>실험 시작 · {startedAtKorea ? <time dateTime={run.startedAt}>{startedAtKorea} (서울 시간)</time> : "시간 미수집"}</p>
         </div>
         <div className="run-list-tools"><span className="badge neutral">{labels[run.status]}</span><button className="outline" onClick={onCompare}>이전 결과와 비교</button></div>
       </div>
