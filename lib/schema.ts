@@ -106,7 +106,7 @@ export const RunSchema = z
     status: z.enum(["completed", "failed", "cancelled"]),
     experiment: z.object({
       kind: z.enum(["fixed_document_verification", "question_understanding", "search_retrieval"]),
-      variant: z.enum(["A", "B"]),
+      variant: z.enum(["A", "B", "observed"]),
       inputHash: z.string().min(1).max(150),
       promptVersion: z.string().min(1).max(100),
       stages: z.array(ExperimentStageSchema).max(30),

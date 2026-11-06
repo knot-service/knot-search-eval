@@ -46,6 +46,8 @@ export async function POST(req: Request) {
         { status: 400 },
       );
     const msg = e instanceof Error ? e.message : "";
+    if (/읽기 전용/.test(msg))
+      return NextResponse.json({ error: msg }, { status: 403 });
     if (/이미|찾을 수|필요합니다|지원하지|확인해|중복/.test(msg))
       return NextResponse.json({ error: msg }, { status: 400 });
     return NextResponse.json(

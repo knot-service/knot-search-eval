@@ -1,6 +1,11 @@
 import { Pool } from "pg";
 import { createHmac } from "node:crypto";
 import { emptyState, applyAction } from "./state";
+import {
+  mergePublishedExperiments,
+  stripPublishedExperiments,
+  isPublishedExperimentDataset,
+} from "./published-experiments";
 import type { DataState } from "./schema";
 let pool: Pool | undefined;
 function connection() {
@@ -40,7 +45,7 @@ export async function checkLoginLimit(address: string): Promise<boolean> {
 export async function readState(): Promise<DataState> {
   const p = await initialize();
   const r = await p.query("SELECT data FROM eval_state WHERE id=1");
-  return r.rows[0].data;
+  return mergePublishedExperiments(r.rows[0].data).state;
 }
 export async function mutateState(input: unknown): Promise<DataState> {
   const p = await initialize();
@@ -50,12 +55,24 @@ export async function mutateState(input: unknown): Promise<DataState> {
     const r = await client.query(
       "SELECT data FROM eval_state WHERE id=1 FOR UPDATE",
     );
-    const next = applyAction(r.rows[0].data, input);
+    const base = r.rows[0].data as DataState;
+    const publication = mergePublishedExperiments(base);
+    const action = input as Record<string, unknown>;
+    if (
+      process.env.VERCEL &&
+      action?.type === "review" &&
+      typeof action.datasetId === "string" &&
+      isPublishedExperimentDataset(action.datasetId)
+    ) {
+      throw new Error("Vercel에 게시된 실험은 읽기 전용입니다. 사람 검수는 로컬 실험실에서 기록해 주세요.");
+    }
+    const nextView = applyAction(publication.state, input);
+    const next = stripPublishedExperiments(nextView, publication);
     await client.query("UPDATE eval_state SET data=$1::jsonb WHERE id=1", [
       JSON.stringify(next),
     ]);
     await client.query("COMMIT");
-    return next;
+    return mergePublishedExperiments(next).state;
   } catch (e) {
     await client.query("ROLLBACK");
     throw e;

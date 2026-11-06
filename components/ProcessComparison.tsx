@@ -39,6 +39,7 @@ function runName(run: Run, index: number) {
   if (run.experiment?.kind === "question_understanding") return `실행 ${index + 1} · ${run.experiment.variant === "A" ? "HTTP" : "Spring AI"} · ${run.strategy.includes("· schema ·") ? "스키마" : "프롬프트"}`;
   if (run.experiment?.kind === "search_retrieval" && run.revision.startsWith("stage3-period-run03-")) return `실행 ${index + 1} · 기간 상속 ${run.experiment.variant === "A" ? "개선 전" : "개선 후"}`;
   if (run.experiment?.kind === "search_retrieval" && run.revision === "condition-impact-v1") return `실행 ${index + 1} · ${run.experiment.variant === "A" ? "모델 원본" : "서버 보정"}`;
+  if (run.experiment?.kind === "search_retrieval" && run.experiment.variant === "observed") return `실행 ${index + 1} · 실제 API/SSE 관측`;
   if (run.experiment?.kind === "search_retrieval") return `실행 ${index + 1} · ${run.experiment.variant === "A" ? "기존 검색" : "질문 이해 후 검색"}`;
   return run.experiment ? `실행 ${index + 1} · 검증 ${run.experiment.variant}` : `실행 ${index + 1} · 기존 실행`;
 }
@@ -46,6 +47,7 @@ function runName(run: Run, index: number) {
 function modelCallMetric(run: Run) {
   if (run.experiment?.kind === "question_understanding") return {value: run.strategy.includes("· 호출 1") ? "1회" : "미수집", detail: "실제 기록된 호출 수"};
   if (run.experiment?.kind === "search_retrieval") {
+    if (run.experiment.variant === "observed") return {value:"미수집",detail:"전체 Qwen 호출 수를 기록하지 않았어요"};
     let foundCallCount = false;
     let totalCalls = 0;
     for (const stage of run.experiment.stages) {
@@ -120,7 +122,7 @@ export function ProcessComparison({ runs, reviews }: { runs: [Run, Run]; reviews
     <div className="tw:border-0 tw:border-b tw:border-solid tw:border-slate-100 tw:px-5 tw:py-5 tw:sm:px-6">
       <div className="tw:flex tw:flex-wrap tw:items-start tw:justify-between tw:gap-3"><div><div className="tw:mb-1 tw:text-[11px] tw:font-semibold tw:tracking-[0.12em] tw:text-indigo-600">PROCESS COMPARISON</div><h2 id="process-comparison-title" className="tw:text-lg tw:font-bold tw:text-slate-900">단계별 실행 비교</h2><p className="tw:mt-1 tw:text-xs tw:text-slate-500">실제 기록된 단계와 검수 결과를 비교해요.</p></div><Badge variant="info"><Activity size={12} aria-hidden="true" />실행 기록</Badge></div>
       <div className="tw:mt-5 tw:grid tw:grid-cols-1 tw:gap-3 tw:lg:grid-cols-3">
-        <Metric title={stage3WorkerComparison ? "Worker 총 소요 시간" : runs.every(run => run.experiment?.kind === "search_retrieval") ? "검색 소요 시간" : "총 소요 시간"} icon={Clock3} values={values.map(({run,name}) => ({name, value:run.results.length === 1 ? duration(run.results[0].latencyMs) : "시간 미수집", detail:run.results.length !== 1 ? "단일 사례가 아니에요" : stage3WorkerComparison ? "Qwen 호출·검색·답변 생성을 포함한 실제 Worker" : run.experiment?.kind === "search_retrieval" ? "모델 호출·답변 생성 제외" : "사례 응답 시간"}))} />
+        <Metric title={stage3WorkerComparison || runs.some(run => run.experiment?.variant === "observed") ? "Worker 총 소요 시간" : runs.every(run => run.experiment?.kind === "search_retrieval") ? "검색 소요 시간" : "총 소요 시간"} icon={Clock3} values={values.map(({run,name}) => ({name, value:run.results.length === 1 ? duration(run.results[0].latencyMs) : "시간 미수집", detail:run.results.length !== 1 ? "단일 사례가 아니에요" : stage3WorkerComparison || run.experiment?.variant === "observed" ? "HTTP/SSE·Qwen·Worker 응답을 포함한 실제 관측" : run.experiment?.kind === "search_retrieval" ? "모델 호출·답변 생성 제외" : "사례 응답 시간"}))} />
         <Metric title="기록된 모델 호출" icon={Activity} values={values.map(({run,name}) => ({name, ...modelCallMetric(run)}))} />
         <Metric title="최종 검수" icon={Check} values={values.map(({run,name}) => { if (run.experiment?.kind === "question_understanding" || run.experiment?.kind === "search_retrieval") { const group = latestReviewsByProvenance(reviews.filter(review => review.runId === run.id && !review.stageId)); return {name,value:`AI ${group.ai ? qualityInfo[group.ai.outcome].label : "미검수"} · 사람 ${group.human ? qualityInfo[group.human.outcome].label : "미검수"}`,detail:group.unknown ? "출처 미확인 검수도 있어요" : undefined}; } const review = latestReview(reviews,run); return {name,value:review ? qualityInfo[review.outcome].label : "미검수",detail:review?.reviewer}; })} />
       </div>

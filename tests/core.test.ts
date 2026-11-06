@@ -7,6 +7,19 @@ import first from "../data/synthetic-run-a.json";
 import second from "../data/synthetic-run-b.json";
 import full from "../data/synthetic-full-dataset.json";
 import type { Run } from "../lib/schema";
+import workspace from "../data/workspace-458-dataset.json";
+import { sharedCaseReadiness } from "../lib/local-cases";
+import { DatasetSchema } from "../lib/schema";
+test("workspace dataset retains physical evidence candidates and requires review", () => {
+  const dataset = DatasetSchema.parse(workspace);
+  const sample = dataset.cases.find((item) => item.id === "S72-01");
+  assert.ok(sample);
+  assert.equal(dataset.cases.length, 255);
+  assert.ok(dataset.corpusHash);
+  assert.deepEqual(sample.expectedEvidenceIds, ["document-2210"]);
+  assert.equal(sharedCaseReadiness(sample).ready, false);
+  assert.equal(sharedCaseReadiness(sample, new Date(), "correct").ready, true);
+});
 test("full draft covers each planned scenario with three cases", () => {
   const state = applyAction(emptyState(), {
     type: "import_dataset",

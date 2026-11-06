@@ -1,0 +1,564 @@
+{
+  "dataset": {
+    "id": "live-qwen-http-sse-20261106",
+    "name": "실제 Lab API/SSE · Qwen 복합 후속 질문",
+    "version": "1.0",
+    "source": "synthetic",
+    "corpusHash": "14055ab30c37d42cb94fc5141d3ee309cef1780110bfd1a4f885214d6d66bf30",
+    "cases": [
+      {
+        "id": "API-01",
+        "scenario": "HTTP01",
+        "category": "복합 대상·기간 실제 API",
+        "question": "지난주 결제 회의와 이번 주 로그인 회의 담당자를 각각 알려줘.",
+        "setup": "2026-11-06 KST. 실제 Lab Spring HTTP/SSE API, Qwen qwen3.8-27b, 격리된 knot_lab_worker_20261106_01 합성 문서 17·18을 사용했습니다.",
+        "history": [],
+        "documents": [
+          {
+            "id": "document-17",
+            "title": "결제 회의",
+            "content": "결제 회의 결정: 결제 취소 정책은 승인 후 7일 이내로 합니다. 담당자는 민지입니다.",
+            "fixtureSource": "knot_lab_worker_20261106_01 · 합성 문서",
+            "fixtureReason": "실제 사용자/운영 문서가 아닌 테스트용 합성 자료입니다.",
+            "workspaceId": "workspace-5",
+            "accessible": true,
+            "meetingStartedAt": "2026-10-27T12:00:00Z"
+          },
+          {
+            "id": "document-18",
+            "title": "로그인 회의",
+            "content": "로그인 회의 결정: 로그인 세션 유지 기간은 30분입니다. 담당자는 준호입니다.",
+            "fixtureSource": "knot_lab_worker_20261106_01 · 합성 문서",
+            "fixtureReason": "실제 사용자/운영 문서가 아닌 테스트용 합성 자료입니다.",
+            "workspaceId": "workspace-5",
+            "accessible": true,
+            "meetingStartedAt": "2026-11-03T12:00:00Z"
+          }
+        ],
+        "expectedBehavior": "두 요청을 각각 처리해 지난주 결제 회의 담당자 민지와 이번 주 로그인 회의 담당자 준호를 각각 답하고 두 문서를 근거로 제시합니다.",
+        "expectedEvidenceIds": [
+          "document-17",
+          "document-18"
+        ],
+        "expectedType": "answer"
+      },
+      {
+        "id": "API-02",
+        "scenario": "HTTP02",
+        "category": "복합 질문 후속 실제 API",
+        "question": "그중 결제 회의 담당자는?",
+        "setup": "같은 대화 ID로 첫 복합 질문과 답변 뒤에 후속 질문을 보냈습니다. 직전 결제 대상의 이전 기간을 이어받아야 합니다.",
+        "history": [
+          {
+            "role": "user",
+            "content": "지난주 결제 회의와 이번 주 로그인 회의 담당자를 각각 알려줘."
+          },
+          {
+            "role": "assistant",
+            "content": "이번 주 로그인 회의의 담당자는 준호입니다. 지난주 결제 회의의 담당자는 현재 검색 가능한 회의 문서에서 확인되지 않았습니다."
+          }
+        ],
+        "documents": [
+          {
+            "id": "document-17",
+            "title": "결제 회의",
+            "content": "결제 회의 결정: 결제 취소 정책은 승인 후 7일 이내로 합니다. 담당자는 민지입니다.",
+            "fixtureSource": "knot_lab_worker_20261106_01 · 합성 문서",
+            "fixtureReason": "실제 사용자/운영 문서가 아닌 테스트용 합성 자료입니다.",
+            "workspaceId": "workspace-5",
+            "accessible": true,
+            "meetingStartedAt": "2026-10-27T12:00:00Z"
+          },
+          {
+            "id": "document-18",
+            "title": "로그인 회의",
+            "content": "로그인 회의 결정: 로그인 세션 유지 기간은 30분입니다. 담당자는 준호입니다.",
+            "fixtureSource": "knot_lab_worker_20261106_01 · 합성 문서",
+            "fixtureReason": "실제 사용자/운영 문서가 아닌 테스트용 합성 자료입니다.",
+            "workspaceId": "workspace-5",
+            "accessible": true,
+            "meetingStartedAt": "2026-11-03T12:00:00Z"
+          }
+        ],
+        "expectedBehavior": "직전 복합 질문의 결제 회의를 가리키는 후속 질문으로 이해하고 결제 담당자 민지를 문서 17에서 확인해 답합니다.",
+        "expectedEvidenceIds": [
+          "document-17"
+        ],
+        "expectedType": "answer"
+      },
+      {
+        "id": "API-03",
+        "scenario": "HTTP03",
+        "category": "주제 선택 반대 사례 실제 API",
+        "question": "이번 주 로그인 회의 담당자는?",
+        "setup": "같은 대화 ID에서 앞서 결제 후속 질문이 실패한 직후 전송한 명시적 로그인 질문입니다.",
+        "history": [
+          {
+            "role": "user",
+            "content": "지난주 결제 회의와 이번 주 로그인 회의 담당자를 각각 알려줘."
+          },
+          {
+            "role": "assistant",
+            "content": "이번 주 로그인 회의의 담당자는 준호입니다. 지난주 결제 회의의 담당자는 현재 검색 가능한 회의 문서에서 확인되지 않았습니다."
+          },
+          {
+            "role": "user",
+            "content": "그중 결제 회의 담당자는?"
+          },
+          {
+            "role": "assistant",
+            "content": ""
+          }
+        ],
+        "documents": [
+          {
+            "id": "document-17",
+            "title": "결제 회의",
+            "content": "결제 회의 결정: 결제 취소 정책은 승인 후 7일 이내로 합니다. 담당자는 민지입니다.",
+            "fixtureSource": "knot_lab_worker_20261106_01 · 합성 문서",
+            "fixtureReason": "실제 사용자/운영 문서가 아닌 테스트용 합성 자료입니다.",
+            "workspaceId": "workspace-5",
+            "accessible": true,
+            "meetingStartedAt": "2026-10-27T12:00:00Z"
+          },
+          {
+            "id": "document-18",
+            "title": "로그인 회의",
+            "content": "로그인 회의 결정: 로그인 세션 유지 기간은 30분입니다. 담당자는 준호입니다.",
+            "fixtureSource": "knot_lab_worker_20261106_01 · 합성 문서",
+            "fixtureReason": "실제 사용자/운영 문서가 아닌 테스트용 합성 자료입니다.",
+            "workspaceId": "workspace-5",
+            "accessible": true,
+            "meetingStartedAt": "2026-11-03T12:00:00Z"
+          }
+        ],
+        "expectedBehavior": "명시적으로 이번 주 로그인 회의만 질문했으므로 이번 주 조건을 적용해 준호를 문서 18에서 확인합니다. 이전 결제 대상은 답에 끌어오지 않습니다.",
+        "expectedEvidenceIds": [
+          "document-18"
+        ],
+        "expectedType": "answer"
+      }
+    ]
+  },
+  "runs": [
+    {
+      "id": "run-live-api-01-20261106",
+      "datasetId": "live-qwen-http-sse-20261106",
+      "datasetVersion": "1.0",
+      "corpusHash": "14055ab30c37d42cb94fc5141d3ee309cef1780110bfd1a4f885214d6d66bf30",
+      "name": "API-01 · 복합 질문 · Qwen HTTP/SSE",
+      "strategy": "실제 Lab HTTP/SSE · isolated Spring · 로컬 Qwen · A/B 아님",
+      "environment": "isolated_spring",
+      "model": "qwen3.8-27b",
+      "revision": "knot-search-lab@958a8f4+dirty",
+      "startedAt": "2026-11-06T00:58:41.989336Z",
+      "status": "completed",
+      "experiment": {
+        "kind": "search_retrieval",
+        "variant": "observed",
+        "inputHash": "d23dccc2eb319ddb4572a107a00f7d21259afd57a701912333ec6f05c04568c3",
+        "promptVersion": "lab-http-sse-observed-2026-11-06",
+        "stages": [
+          {
+            "id": "http_sse",
+            "label": "HTTP/SSE 요청·완료",
+            "status": "completed",
+            "durationMs": 10916,
+            "result": "POST /api/v1/workspaces/5/search/conversations · HTTP 200 · text/event-stream · accepted → SEARCHING → GENERATING → excluded_documents → delta → evidence(document-18) → completed",
+            "inputTokens": null,
+            "outputTokens": null
+          },
+          {
+            "id": "intent",
+            "label": "의도 분류",
+            "status": "completed",
+            "durationMs": 746,
+            "result": "실제 Qwen 호출 1회",
+            "inputTokens": 822,
+            "outputTokens": 8
+          },
+          {
+            "id": "question_understanding",
+            "label": "질문 이해",
+            "status": "completed",
+            "durationMs": 5314,
+            "result": "복합 요청을 처리한 실제 Qwen 출력",
+            "inputTokens": 6454,
+            "outputTokens": 348
+          },
+          {
+            "id": "document_retrieval",
+            "label": "DB 검색",
+            "status": "completed",
+            "durationMs": null,
+            "result": "검색은 실행됨. SQL 검색의 별도 소요 시간은 수집되지 않았습니다.",
+            "inputTokens": null,
+            "outputTokens": null
+          },
+          {
+            "id": "document_verification_payment",
+            "label": "결제 요청 문서 확인",
+            "status": "completed",
+            "durationMs": 1172,
+            "result": "검증 후보 2개, 통과 0개. 문서 17(결제 회의)을 통과시키지 못했습니다.",
+            "inputTokens": null,
+            "outputTokens": null
+          },
+          {
+            "id": "document_verification_login",
+            "label": "로그인 요청 문서 확인",
+            "status": "completed",
+            "durationMs": 1148,
+            "result": "검증 후보 2개, 통과 1개. 문서 18(로그인 회의)을 근거로 남겼습니다.",
+            "inputTokens": null,
+            "outputTokens": null
+          },
+          {
+            "id": "answer_generation",
+            "label": "답변 생성·스트리밍",
+            "status": "completed",
+            "durationMs": 1172,
+            "result": "답변 생성 완료. 모델 첫 콘텐츠 421ms; SSE 클라이언트 첫 delta 시간은 별도 수집하지 않았습니다.",
+            "inputTokens": null,
+            "outputTokens": null
+          },
+          {
+            "id": "persistence",
+            "label": "답변·근거 저장",
+            "status": "completed",
+            "durationMs": null,
+            "result": "격리 DB에서 answer 52 COMPLETED와 실제 근거 document 18을 재조회했습니다. 저장 시간은 미수집.",
+            "inputTokens": null,
+            "outputTokens": null
+          },
+          {
+            "id": "quality_assessment",
+            "label": "사후 품질 판정",
+            "status": "completed",
+            "durationMs": null,
+            "result": "Codex 검토: 부적합. 결제 담당자 민지를 누락했고 로그인 문서 하나만 최종 근거로 남았습니다.",
+            "inputTokens": null,
+            "outputTokens": null
+          }
+        ]
+      },
+      "results": [
+        {
+          "caseId": "API-01",
+          "status": "completed",
+          "candidates": [
+            "document-17",
+            "document-18"
+          ],
+          "answer": "이번 주 로그인 회의의 담당자는 준호입니다. 지난주 결제 회의의 담당자는 현재 검색 가능한 회의 문서에서 확인되지 않았습니다.",
+          "evidenceIds": [
+            "document-18"
+          ],
+          "latencyMs": 10916,
+          "error": null,
+          "stageTimings": {
+            "capture": "collected",
+            "stages": [
+              {
+                "phase": "queue_wait",
+                "durationMs": 848,
+                "outcome": "success"
+              },
+              {
+                "phase": "intent_classification",
+                "durationMs": 746,
+                "outcome": "success"
+              },
+              {
+                "phase": "answer_generation",
+                "durationMs": 1172,
+                "outcome": "success"
+              },
+              {
+                "phase": "llm_first_content",
+                "durationMs": 421,
+                "outcome": "success"
+              },
+              {
+                "phase": "worker_total",
+                "durationMs": 9791,
+                "outcome": "success"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "run-live-api-02-20261106",
+      "datasetId": "live-qwen-http-sse-20261106",
+      "datasetVersion": "1.0",
+      "corpusHash": "14055ab30c37d42cb94fc5141d3ee309cef1780110bfd1a4f885214d6d66bf30",
+      "name": "API-02 · 결제 후속 질문 · 실제 실패",
+      "strategy": "실제 Lab HTTP/SSE · isolated Spring · 로컬 Qwen · A/B 아님",
+      "environment": "isolated_spring",
+      "model": "qwen3.8-27b",
+      "revision": "knot-search-lab@958a8f4+dirty",
+      "startedAt": "2026-11-06T00:58:52.813967Z",
+      "status": "failed",
+      "experiment": {
+        "kind": "search_retrieval",
+        "variant": "observed",
+        "inputHash": "8d4705a1f0035c19b67967dee98d78436c720af09d49c3d62804e58387cc1ed4",
+        "promptVersion": "lab-http-sse-observed-2026-11-06",
+        "stages": [
+          {
+            "id": "http_sse",
+            "label": "HTTP/SSE 요청·종료",
+            "status": "failed",
+            "durationMs": 2253,
+            "result": "HTTP 200 SSE 연결. accepted(conversation=16, question=53, answer=54) → SEARCHING → evidence 0건 → failed(ANSWER_GENERATION_FAILED).",
+            "inputTokens": null,
+            "outputTokens": null
+          },
+          {
+            "id": "intent",
+            "label": "의도 분류",
+            "status": "completed",
+            "durationMs": 431,
+            "result": "실제 Qwen 호출 1회",
+            "inputTokens": 870,
+            "outputTokens": 8
+          },
+          {
+            "id": "question_understanding",
+            "label": "질문 이해",
+            "status": "completed",
+            "durationMs": 1456,
+            "result": "실제 Qwen 출력 생성",
+            "inputTokens": 6702,
+            "outputTokens": 81
+          },
+          {
+            "id": "context_selection",
+            "label": "후속 대상 검증",
+            "status": "failed",
+            "durationMs": null,
+            "result": "SearchQuestionPlanDecoder.selectedGroupCandidateIds에서 IllegalArgumentException. 현재 clarification group이 없는 후속 질문의 선택을 거부했습니다.",
+            "inputTokens": null,
+            "outputTokens": null
+          },
+          {
+            "id": "document_retrieval",
+            "label": "DB 검색",
+            "status": "not_run",
+            "durationMs": null,
+            "result": "후보 문서와 근거가 생성되지 않았습니다.",
+            "inputTokens": null,
+            "outputTokens": null
+          },
+          {
+            "id": "answer_generation",
+            "label": "답변 생성",
+            "status": "not_run",
+            "durationMs": null,
+            "result": "답변 생성 단계에 도달하지 않았습니다.",
+            "inputTokens": null,
+            "outputTokens": null
+          },
+          {
+            "id": "persistence",
+            "label": "실패 상태 저장",
+            "status": "completed",
+            "durationMs": null,
+            "result": "격리 DB에서 answer 54 FAILED, 본문 비어 있음, evidence 0건을 확인했습니다.",
+            "inputTokens": null,
+            "outputTokens": null
+          },
+          {
+            "id": "quality_assessment",
+            "label": "사후 품질 판정",
+            "status": "completed",
+            "durationMs": null,
+            "result": "Codex 검토: 부적합. 결제 담당자 질문을 처리하지 못하고 API/SSE에서 실패 상태로 끝났습니다.",
+            "inputTokens": null,
+            "outputTokens": null
+          }
+        ]
+      },
+      "results": [
+        {
+          "caseId": "API-02",
+          "status": "failed",
+          "candidates": [],
+          "answer": "",
+          "evidenceIds": [],
+          "latencyMs": 2253,
+          "error": "ANSWER_GENERATION_FAILED",
+          "stageTimings": {
+            "capture": "collected",
+            "stages": [
+              {
+                "phase": "intent_classification",
+                "durationMs": 431,
+                "outcome": "success"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "run-live-api-03-20261106",
+      "datasetId": "live-qwen-http-sse-20261106",
+      "datasetVersion": "1.0",
+      "corpusHash": "14055ab30c37d42cb94fc5141d3ee309cef1780110bfd1a4f885214d6d66bf30",
+      "name": "API-03 · 명시적 로그인 반대 사례 · Qwen HTTP/SSE",
+      "strategy": "실제 Lab HTTP/SSE · isolated Spring · 로컬 Qwen · A/B 아님",
+      "environment": "isolated_spring",
+      "model": "qwen3.8-27b",
+      "revision": "knot-search-lab@958a8f4+dirty",
+      "startedAt": "2026-11-06T00:58:55.061106Z",
+      "status": "completed",
+      "experiment": {
+        "kind": "search_retrieval",
+        "variant": "observed",
+        "inputHash": "aa5d65dae22ba9c37e8fe876c48c84c1ae050b890607a982388ed032e53efa41",
+        "promptVersion": "lab-http-sse-observed-2026-11-06",
+        "stages": [
+          {
+            "id": "http_sse",
+            "label": "HTTP/SSE 요청·완료",
+            "status": "completed",
+            "durationMs": 5040,
+            "result": "POST /api/v1/workspaces/5/search/conversations/16/questions · HTTP 200 · text/event-stream · accepted → SEARCHING → GENERATING → excluded_documents → delta → evidence(document-18) → completed",
+            "inputTokens": null,
+            "outputTokens": null
+          },
+          {
+            "id": "intent",
+            "label": "의도 분류",
+            "status": "completed",
+            "durationMs": 400,
+            "result": "실제 Qwen 호출 1회",
+            "inputTokens": 884,
+            "outputTokens": 8
+          },
+          {
+            "id": "question_understanding",
+            "label": "질문 이해",
+            "status": "completed",
+            "durationMs": 1458,
+            "result": "명시적인 이번 주 로그인 주제만 유지했습니다.",
+            "inputTokens": 6584,
+            "outputTokens": 88
+          },
+          {
+            "id": "document_retrieval",
+            "label": "DB 검색",
+            "status": "completed",
+            "durationMs": null,
+            "result": "검색은 실행됨. SQL 검색의 별도 소요 시간과 전체 후보 목록은 미수집.",
+            "inputTokens": null,
+            "outputTokens": null
+          },
+          {
+            "id": "document_verification",
+            "label": "문서 조건 확인",
+            "status": "completed",
+            "durationMs": 1101,
+            "result": "후보 문서 1개 통과: document-18 로그인 회의.",
+            "inputTokens": null,
+            "outputTokens": null
+          },
+          {
+            "id": "answer_generation",
+            "label": "답변 생성·스트리밍",
+            "status": "completed",
+            "durationMs": 964,
+            "result": "답변 생성 완료. 모델 첫 콘텐츠 434ms; SSE 클라이언트 첫 delta 시간은 별도 수집하지 않았습니다.",
+            "inputTokens": null,
+            "outputTokens": null
+          },
+          {
+            "id": "persistence",
+            "label": "답변·근거 저장",
+            "status": "completed",
+            "durationMs": null,
+            "result": "격리 DB에서 answer 56 COMPLETED와 실제 근거 document 18을 재조회했습니다. 저장 시간은 미수집.",
+            "inputTokens": null,
+            "outputTokens": null
+          },
+          {
+            "id": "quality_assessment",
+            "label": "사후 품질 판정",
+            "status": "completed",
+            "durationMs": null,
+            "result": "Codex 검토: 적합. 명시된 이번 주 로그인 조건을 유지했고 준호와 근거 문서 18이 일치합니다.",
+            "inputTokens": null,
+            "outputTokens": null
+          }
+        ]
+      },
+      "results": [
+        {
+          "caseId": "API-03",
+          "status": "completed",
+          "candidates": [
+            "document-18"
+          ],
+          "answer": "이번 주 로그인 회의의 담당자는 준호입니다.",
+          "evidenceIds": [
+            "document-18"
+          ],
+          "latencyMs": 5040,
+          "error": null,
+          "stageTimings": {
+            "capture": "collected",
+            "stages": [
+              {
+                "phase": "queue_wait",
+                "durationMs": 852,
+                "outcome": "success"
+              },
+              {
+                "phase": "intent_classification",
+                "durationMs": 400,
+                "outcome": "success"
+              },
+              {
+                "phase": "answer_generation",
+                "durationMs": 964,
+                "outcome": "success"
+              },
+              {
+                "phase": "llm_first_content",
+                "durationMs": 434,
+                "outcome": "success"
+              },
+              {
+                "phase": "worker_total",
+                "durationMs": 4052,
+                "outcome": "success"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "observation": {
+    "capturedAt": "2026-11-06T00:58:41.989336Z",
+    "timezone": "Asia/Seoul",
+    "application": "knot-search-lab",
+    "labCommit": "958a8f4",
+    "labWorktreeDirty": true,
+    "model": "qwen3.8-27b",
+    "database": "knot_lab_worker_20261106_01",
+    "workspaceId": 5,
+    "flyway": "disabled for this test instance because existing v59 checksum mismatch; schema verified read-only",
+    "humanReview": "not performed",
+    "comparison": "single live observation; not an A/B benchmark",
+    "notes": [
+      "Each wall latency is a single request measurement, not p95/p99.",
+      "The UI/HTTP route, SSE, real Qwen, isolated SQL database, and stored answer/evidence were exercised.",
+      "Only synthetic documents 17 and 18 were used.",
+      "The public Vercel route receives this committed artifact as read-only input; local DB remains the editable source of reviews."
+    ]
+  }
+}

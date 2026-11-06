@@ -25,6 +25,7 @@ import { latestReviewsByProvenance } from "../lib/review-provenance";
 import { belongsToSpace, experimentSpaces, type ExperimentSpace } from "../lib/experiment-spaces";
 import { formatKoreaRunTime, koreaTimeInText } from "../lib/korea-time";
 import { CaseSchema } from "../lib/schema";
+import { publishedExperimentDatasetId } from "../lib/published-experiment-ids";
 import { RunReviews } from "./RunReviews";
 import { ProcessComparison } from "./ProcessComparison";
 import sampleDataset from "../data/synthetic-dataset.json";
@@ -888,6 +889,7 @@ export function Dashboard() {
                       notes={runNotes}
                       setNotes={setRunNotes}
                       busy={busy}
+                      reviewEnabled={localAccess || activeRun.datasetId !== publishedExperimentDatasetId}
                       onStageReview={async (stageId, outcome, stageNotes) => { await action({type:"review",datasetId:activeRun.datasetId,datasetVersion:activeRun.datasetVersion,caseId:activeRun.results[0]?.caseId,runId:activeRun.id,stageId,outcome,notes:stageNotes}); }}
                       onCompare={() => {
                         const current = activeRun;
@@ -1249,11 +1251,12 @@ function Result({ result, candidateAvailable, experimentKind }: { result: Run["r
   );
 }
 
-function ExperimentStage({stage, reviews, busy, onReview, separateProvenance}: {
+function ExperimentStage({stage, reviews, busy, onReview, separateProvenance, reviewEnabled}: {
   stage: NonNullable<Run["experiment"]>["stages"][number];
   reviews: DataState["reviews"];
   busy: boolean;
   separateProvenance: boolean;
+  reviewEnabled: boolean;
   onReview: (outcome: "correct" | "incorrect" | "hold", notes: string) => Promise<void>;
 }) {
   const [note, setNote] = useState("");
@@ -1270,7 +1273,7 @@ function ExperimentStage({stage, reviews, busy, onReview, separateProvenance}: {
       {grouped.unknown && <p>출처 미확인 검수: {labels[grouped.unknown.outcome]} · {grouped.unknown.reviewer}</p>}
     </div> : <p>품질: {current ? `${labels[current.outcome]} · ${current.reviewer} · ${new Date(current.createdAt).toLocaleString("ko-KR", {timeZone:"Asia/Seoul"})}` : stage.status === "not_applicable" ? "해당 없음" : "미검수"}</p>}
     {reviews.length > 0 && <details><summary>검수 이력 {reviews.length}건</summary>{[...reviews].sort((a,b) => b.createdAt.localeCompare(a.createdAt)).map((review) => <p key={review.id}>{labels[review.outcome]} · {review.reviewer} · {new Date(review.createdAt).toLocaleString("ko-KR",{timeZone:"Asia/Seoul"})}{review.notes ? ` · ${review.notes}` : ""}</p>)}</details>}
-    {stage.status === "completed" && <><textarea aria-label={`${stage.label} 품질 검수 의견`} value={note} onChange={(event) => setNote(event.target.value)} placeholder="이 단계의 품질 판단 근거" /><div className="review-actions">{(["correct","incorrect","hold"] as const).map((outcome) => <button className="outline" disabled={busy} key={outcome} onClick={() => void onReview(outcome,note)}>{labels[outcome]}</button>)}</div></>}
+    {stage.status === "completed" && reviewEnabled && <><textarea aria-label={`${stage.label} 품질 검수 의견`} value={note} onChange={(event) => setNote(event.target.value)} placeholder="이 단계의 품질 판단 근거" /><div className="review-actions">{(["correct","incorrect","hold"] as const).map((outcome) => <button className="outline" disabled={busy} key={outcome} onClick={() => void onReview(outcome,note)}>{labels[outcome]}</button>)}</div></>}
   </section>;
 }
 
@@ -1286,6 +1289,7 @@ function RunDetail({
   onReview,
   onStageReview,
   onCompare,
+  reviewEnabled,
 }: {
   run: Run;
   cases: (EvalCase & { datasetId: string; datasetVersion: string })[];
@@ -1298,6 +1302,7 @@ function RunDetail({
   onReview: (v: "correct" | "incorrect" | "hold") => void;
   onStageReview: (stageId: string, outcome: "correct" | "incorrect" | "hold", notes: string) => Promise<void>;
   onCompare: () => void;
+  reviewEnabled: boolean;
 }) {
   const result =
     run.results.find((r) => r.caseId === selected) ?? run.results[0];
@@ -1402,7 +1407,7 @@ function RunDetail({
               {result.privacyLogObserved && <p className="muted">합성 개인정보 로그 관측: {result.privacyLogObserved === 'exposed' ? '노출 감지' : result.privacyLogObserved === 'not_observed' ? '관측된 로그에서 노출 없음' : '확인할 수 없음'} (해당 실행의 로그만 확인)</p>}
               {result.answer && result.error && <p className="run-error">오류: {result.error}</p>}
               <p className="muted">
-                후보 {run.experiment?.kind === "search_retrieval" ? result.candidates.join(", ") || "없음" : run.experiment?.kind === "question_understanding" ? "해당 없음 (검색 미실행)" : run.experiment ? "해당 없음 (고정 문서)" : run.environment === "isolated_spring" ? "미수집" : result.candidates.join(", ") || "없음"} · {run.experiment?.kind === "search_retrieval" || run.experiment?.kind === "question_understanding" ? "근거 미확인" : run.experiment ? "모델이 제시한 근거 후보" : "근거"}{" "}
+                후보 {run.experiment?.kind === "search_retrieval" ? result.candidates.join(", ") || "없음" : run.experiment?.kind === "question_understanding" ? "해당 없음 (검색 미실행)" : run.experiment ? "해당 없음 (고정 문서)" : run.environment === "isolated_spring" ? "미수집" : result.candidates.join(", ") || "없음"} · {run.experiment?.kind === "search_retrieval" && run.experiment.variant === "observed" ? "저장된 실제 근거" : run.experiment?.kind === "search_retrieval" || run.experiment?.kind === "question_understanding" ? "근거 미확인" : run.experiment ? "모델이 제시한 근거 후보" : "근거"}{" "}
                 {result.evidenceIds.join(", ") || "없음"} ·{" "}
                 {result.latencyMs === null ? "시간 없음" : `${result.latencyMs}ms`}
               </p>
@@ -1419,8 +1424,8 @@ function RunDetail({
             </div>
             {run.experiment && <div className="detail-block">
               <label>단계별 결과·시간·품질</label>
-              <p className="muted">{run.experiment.kind === "question_understanding" ? run.strategy.startsWith("OpenAI Decisions") ? "질문 판단 · OpenAI Decisions" : `질문 이해 ${run.experiment.variant === "A" ? "HTTP" : "Spring AI"}` : run.experiment.kind === "search_retrieval" ? `검색 ${run.experiment.variant}` : `검증 ${run.experiment.variant}`} · 고정 입력 {run.experiment.inputHash.slice(0, 12)} · 모델의 판정과 사람 검수는 별개예요.</p>
-              {run.experiment.stages.map((stage) => <ExperimentStage key={stage.id} stage={stage} reviews={reviews.filter((review) => review.runId === run.id && review.stageId === stage.id)} busy={busy} separateProvenance={run.experiment?.kind === "question_understanding" || run.experiment?.kind === "search_retrieval"} onReview={(outcome, stageNotes) => onStageReview(stage.id, outcome, stageNotes)} />)}
+              <p className="muted">{run.experiment.kind === "question_understanding" ? run.strategy.startsWith("OpenAI Decisions") ? "질문 판단 · OpenAI Decisions" : `질문 이해 ${run.experiment.variant === "A" ? "HTTP" : "Spring AI"}` : run.experiment.kind === "search_retrieval" ? `검색 ${run.experiment.variant === "observed" ? "실제 API/SSE 관측" : run.experiment.variant}` : `검증 ${run.experiment.variant}`} · 입력 {run.experiment.inputHash.slice(0, 12)} · 모델의 판정과 사람 검수는 별개예요.</p>
+              {run.experiment.stages.map((stage) => <ExperimentStage key={stage.id} stage={stage} reviews={reviews.filter((review) => review.runId === run.id && review.stageId === stage.id)} busy={busy} reviewEnabled={reviewEnabled} separateProvenance={run.experiment?.kind === "question_understanding" || run.experiment?.kind === "search_retrieval"} onReview={(outcome, stageNotes) => onStageReview(stage.id, outcome, stageNotes)} />)}
             </div>}
             <div className="detail-block">
               <label>{run.experiment?.kind === "question_understanding" ? "참고: 전체 답변의 기대 동작" : "기대 동작"}</label>
@@ -1428,35 +1433,19 @@ function RunDetail({
             </div>
             <div className="detail-block">
               <label htmlFor="run-note">결과 검수</label>
-              <textarea
-                id="run-note"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="결과의 근거와 판단을 기록하세요"
-              />
-              <div className="review-actions">
-                <button
-                  className="outline"
-                  disabled={busy}
-                  onClick={() => onReview("correct")}
-                >
-                  적합
-                </button>
-                <button
-                  className="outline"
-                  disabled={busy}
-                  onClick={() => onReview("incorrect")}
-                >
-                  부적합
-                </button>
-                <button
-                  className="outline"
-                  disabled={busy}
-                  onClick={() => onReview("hold")}
-                >
-                  판단 보류
-                </button>
-              </div>
+              {reviewEnabled ? <>
+                <textarea
+                  id="run-note"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="결과의 근거와 판단을 기록하세요"
+                />
+                <div className="review-actions">
+                  <button className="outline" disabled={busy} onClick={() => onReview("correct")}>적합</button>
+                  <button className="outline" disabled={busy} onClick={() => onReview("incorrect")}>부적합</button>
+                  <button className="outline" disabled={busy} onClick={() => onReview("hold")}>판단 보류</button>
+                </div>
+              </> : <p className="muted">Vercel에 게시된 실행 결과는 읽기 전용이에요. 검수 기록은 로컬 실험실에서 작성합니다.</p>}
               <RunReviews reviews={reviews} runId={run.id} caseId={result.caseId} />
             </div>
           </div>

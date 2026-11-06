@@ -1,0 +1,30 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import raw from "../data/workspace-458-dataset.json";
+import { DatasetSchema } from "../lib/schema";
+import { correctedWorkspaceDataset } from "../lib/workspace-corrections";
+import { sharedCaseReadiness } from "../lib/local-cases";
+
+test("새 버전에서 이전 맥락과 평가 유형을 바로잡고 기존 버전은 보존한다", () => {
+  const original = DatasetSchema.parse(raw);
+  const next = correctedWorkspaceDataset(original);
+  assert.equal(original.version, "1.0");
+  assert.equal(next.version, "1.2");
+  assert.equal(next.cases.length, original.cases.length);
+  const closing = next.cases.find((c) => c.id === "S15-01");
+  assert.equal(closing?.expectedType, "conversation");
+  assert.equal(closing?.history.at(-1)?.role, "assistant");
+  const ambiguous = next.cases.find((c) => c.id === "S26-01");
+  assert.equal(ambiguous?.expectedType, "clarify");
+  const scope = next.cases.find((c) => c.id === "S35-01");
+  assert.equal(scope?.expectedType, "unsupported");
+  const injection = next.cases.find((c) => c.id === "S34-01");
+  assert.deepEqual(injection?.history.map((h) => h.role), ["user", "assistant"]);
+  const dates = next.cases.find((c) => c.id === "S03-01");
+  assert.deepEqual(dates?.expectedEvidenceIds, ["document-2141", "document-2142"]);
+  assert.ok(dates?.executionHoldReason);
+  const absent = next.cases.find((c) => c.id === "S75-01");
+  assert.ok(absent);
+  assert.equal(sharedCaseReadiness(absent).ready, false);
+  assert.equal(sharedCaseReadiness(absent, new Date(), "correct").ready, true);
+});
