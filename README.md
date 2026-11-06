@@ -8,9 +8,9 @@
 
 접속 주소는 `http://127.0.0.1:3000`입니다. 서버를 새로 시작한 터미널을 켜 두어야 합니다. 실행 환경은 이 컴퓨터 전용이며 Vercel 주소에서는 로컬 Spring 실행 기능을 사용할 수 없습니다.
 
-구현은 `scripts/launch-local.command`를 참고하세요. 로컬 Spring 설정은 `backend/.env.search-local`에서, 평가 결과 DB 연결과 로그인 설정은 `.env.local`에서 읽습니다. 로컬 평가 DB(`127.0.0.1:55440/knot_eval`)와 Vercel 평가 DB는 별도 저장소이며 자동 동기화되지 않습니다. 로컬 DB의 검수 이력은 로컬에 남습니다. Vercel에서도 확인할 공개 실험은 합성 자료만 담은 `data/` artifact로 커밋하며, 최신 앱 버전이 배포되면 artifact를 읽기 전용으로 표시합니다. artifact는 Neon으로 가져오지 않습니다. 로컬 DB에는 `npm run import:live-qwen-local`로 같은 실행 기록을 멱등하게 가져올 수 있습니다. 이 명령은 `127.0.0.1:55440/knot_eval` 외의 DB에서 실행을 거부합니다. Spring이 검색하는 합성 문서는 별도의 로컬 PostgreSQL에 있습니다. 비밀값은 저장소나 실행 이력에 넣지 않습니다. 모델 서버의 이용 가능 여부에 따라 실제 실행이 실패할 수 있습니다.
+구현은 `scripts/launch-local.command`를 참고하세요. 로컬 Spring 설정은 `backend/.env.search-local`에서, 평가 결과 DB 연결과 로그인 설정은 `.env.local`에서 읽습니다. 로컬 평가 DB(`127.0.0.1:55440/knot_eval`)와 Vercel 평가 DB는 별도 저장소이며 자동 동기화되지 않습니다. 2026-11-06에는 합성 평가 데이터 118개, 실행 2,203개, 검수 9,859개를 Vercel DB에 한 번 동기화했고, 실행·검수 ID와 내용을 API로 재확인했습니다. 공개 Qwen artifact 1개 평가셋·3개 실행은 기존 정책대로 Git에서 읽기 전용 overlay로 표시하고 Neon에는 중복 저장하지 않습니다. 이후 새로 생긴 로컬 실행을 Vercel에 보이게 하려면 다시 동기화해야 합니다. 로컬 DB에는 `npm run import:live-qwen-local`로 같은 실행 기록을 멱등하게 가져올 수 있습니다. 이 명령은 `127.0.0.1:55440/knot_eval` 외의 DB에서 실행을 거부합니다. Spring이 검색하는 합성 문서는 별도의 로컬 PostgreSQL에 있습니다. 비밀값은 저장소나 실행 이력에 넣지 않습니다. 모델 서버의 이용 가능 여부에 따라 실제 실행이 실패할 수 있습니다.
 
-`knot-search-eval` GitHub 저장소는 2026-11-06에 공개 전환했고, Vercel 프로젝트를 `knot-service/knot-search-eval`의 `main`과 연결했습니다. 연결 직전 마지막 production 배포는 `e3b30ce`였으며, 공개 artifact를 포함한 새 배포가 완료됐는지는 아직 확인 중입니다. 로컬 DB 전체를 Vercel로 복사하지 않고, 승인된 합성 artifact만 읽기 전용으로 제공합니다. 최신 배포 SHA와 artifact 노출을 검증한 기록은 [로컬·Vercel 동기화 확인](docs/local-vercel-sync-2026-11-06.md)에 업데이트합니다.
+`knot-search-eval` GitHub 저장소는 2026-11-06에 공개 전환했고, Vercel 프로젝트는 `knot-service/knot-search-eval`의 `main`과 연결되어 있습니다. 공개 전환 기록 커밋 `85166cf`의 production 배포는 Ready였고, 인증된 Vercel API에서 로컬과 같은 평가셋·실행·검수 개수를 확인했습니다. 최신 배포와 데이터 대조 기록은 [로컬·Vercel 동기화 확인](docs/local-vercel-sync-2026-11-06.md)을 참고하세요.
 
 ## 실험과 검수
 

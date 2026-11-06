@@ -4,7 +4,7 @@
 
 실제 Lab의 인증된 `POST /api/v1/workspaces/5/search/conversations` HTTP/SSE 흐름을 Qwen으로 실행하고, 격리된 `knot_lab_worker_20261106_01`에서 답변·근거 저장을 다시 확인했다. 이 문서의 corpus는 합성 회의 문서 17·18뿐이며 실제 사용자 문서나 운영 DB를 사용하지 않았다.
 
-원본 실행 자료는 [`data/live-qwen-http-sse-2026-11-06.json`](../data/live-qwen-http-sse-2026-11-06.json)에 있다. 로컬 평가는 같은 artifact를 로컬 `knot_eval`에 가져오며, Vercel의 의도된 동작은 커밋 artifact를 읽기 전용으로 표시하는 것이다. Vercel DB에는 이 dataset/run을 적재하지 않는다. 다만 2026-11-06 확인 시점의 현재 Vercel 배포에서는 이 artifact가 보이지 않았다. [동기화 상태와 다음 점검](./local-vercel-sync-2026-11-06.md)을 참고한다.
+원본 실행 자료는 [`data/live-qwen-http-sse-2026-11-06.json`](../data/live-qwen-http-sse-2026-11-06.json)에 있다. 로컬 평가는 같은 artifact를 로컬 `knot_eval`에 가져오며, Vercel view에서는 커밋 artifact를 읽기 전용으로 표시한다. 이 dataset/run 3건은 Vercel DB에 중복 적재하지 않는다. 2026-11-06 11:57 KST에 인증된 Vercel API에서 artifact를 포함한 로컬과 동일한 118개 평가셋·2,203개 실행·9,859개 검수 기록을 확인했다. [동기화 상태와 점검 내역](./local-vercel-sync-2026-11-06.md)을 참고한다.
 
 ## 세 사례
 
