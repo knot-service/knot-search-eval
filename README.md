@@ -10,7 +10,7 @@
 
 구현은 `scripts/launch-local.command`를 참고하세요. 로컬 Spring 설정은 `backend/.env.search-local`에서, 평가 결과 DB 연결과 로그인 설정은 `.env.local`에서 읽습니다. 로컬 평가 DB(`127.0.0.1:55440/knot_eval`)와 Vercel 평가 DB는 별도 저장소이며 자동 동기화되지 않습니다. 로컬 DB의 검수 이력은 로컬에 남습니다. Vercel에서도 확인할 공개 실험은 합성 자료만 담은 `data/` artifact로 커밋하며, 최신 앱 버전이 배포되면 artifact를 읽기 전용으로 표시합니다. artifact는 Neon으로 가져오지 않습니다. 로컬 DB에는 `npm run import:live-qwen-local`로 같은 실행 기록을 멱등하게 가져올 수 있습니다. 이 명령은 `127.0.0.1:55440/knot_eval` 외의 DB에서 실행을 거부합니다. Spring이 검색하는 합성 문서는 별도의 로컬 PostgreSQL에 있습니다. 비밀값은 저장소나 실행 이력에 넣지 않습니다. 모델 서버의 이용 가능 여부에 따라 실제 실행이 실패할 수 있습니다.
 
-2026-11-06 확인 시점에는 GitHub `main`에 게시 artifact가 푸시되어 있지만, 현재 Vercel 배포 응답에는 포함되지 않았습니다. 앱 버전·데이터 차이를 확인한 근거와 다음 조치는 [로컬·Vercel 동기화 확인](docs/local-vercel-sync-2026-11-06.md)에 기록했습니다.
+`knot-search-eval` GitHub 저장소는 2026-11-06에 공개 전환했고, Vercel 프로젝트를 `knot-service/knot-search-eval`의 `main`과 연결했습니다. 연결 직전 마지막 production 배포는 `e3b30ce`였으며, 공개 artifact를 포함한 새 배포가 완료됐는지는 아직 확인 중입니다. 로컬 DB 전체를 Vercel로 복사하지 않고, 승인된 합성 artifact만 읽기 전용으로 제공합니다. 최신 배포 SHA와 artifact 노출을 검증한 기록은 [로컬·Vercel 동기화 확인](docs/local-vercel-sync-2026-11-06.md)에 업데이트합니다.
 
 ## 실험과 검수
 
