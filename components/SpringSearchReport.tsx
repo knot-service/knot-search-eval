@@ -92,7 +92,18 @@ const GenerationComparison = QwenComparison.extend({
   priorityContextComparisons: QwenComparison.shape.contextComparisons,
   priorityOverlaps: z.object({ MEETING_QUESTION: z.number(), MULTI_MEETING_SYNTHESIS: z.number() }),
 });
-const Phase6 = MixedLoad.extend({ split: MixedLoad, qwenReplay: QwenComparison, generationReplay: GenerationComparison });
+const AgingRun = z.object({
+  before: GenerationRun, after: GenerationRun, promotionWaitMs: z.number(),
+  contextComparisons: QwenComparison.shape.contextComparisons,
+  promotedByConcurrency: z.record(z.string(), z.number()),
+});
+const AgingComparison = z.object({
+  balanced: AgingRun,
+  surge: AgingRun.extend({ wavesWithEarlierSynthesis: z.object({ before: z.number(), after: z.number() }) }),
+});
+const Phase6 = MixedLoad.extend({
+  split: MixedLoad, qwenReplay: QwenComparison, generationReplay: GenerationComparison, agingReplay: AgingComparison,
+});
 const number = (value: number) => value.toLocaleString("ko-KR");
 const ratio = (actual: number, total: number) => `${number(actual)} / ${number(total)}건`;
 const percent = (value: number) => `${(100 * value).toFixed(1)}%`;
@@ -244,6 +255,7 @@ function MixedLoadReport({ report }: { readonly report: z.infer<typeof Phase6> }
         })}
       </div>
       <p>HTTP 전송부터 비어 있지 않은 첫 답변과 완료 이벤트를 측정했습니다. 경로별 표본이 12·24건이므로 이 표의 p99는 관측 최댓값입니다. 예열은 제외했습니다.</p>
+      <SynthesisAgingReport comparison={report.agingReplay} />
       <GenerationPolicyReport comparison={report.generationReplay} concurrency={level.concurrency} />
       <QwenReplayReport comparison={report.qwenReplay} concurrency={level.concurrency} />
       <h2>근거 품질 회귀</h2>
@@ -273,6 +285,66 @@ function MixedLoadReport({ report }: { readonly report: z.infer<typeof Phase6> }
 }
 
 const workerRows = [["workerQueue", "Worker 대기"], ["firstSse", "첫 SSE"], ["completedSse", "전체 완료"]] as const;
+
+function SynthesisAgingReport({ comparison }: { readonly comparison: z.infer<typeof AgingComparison> }) {
+  const [scenario, setScenario] = useState("surge");
+  const isSurge = scenario === "surge";
+  const concurrency = isSurge ? 6 : Number(scenario);
+  const { before, after, contextComparisons, promotedByConcurrency, promotionWaitMs } = isSurge ? comparison.surge : comparison.balanced;
+  const baseline = before.levels.find((row) => row.concurrency === concurrency);
+  const level = after.levels.find((row) => row.concurrency === concurrency);
+  const previous = before.quality.find((row) => row.workspaceId === 458);
+  const quality = after.quality.find((row) => row.workspaceId === 458);
+  if (!baseline || !level || !previous || !quality) return null;
+
+  const time = (ms: number | null | undefined) => ms == null ? "—" : (ms / 1000).toFixed(3);
+  const tail = (values: z.infer<typeof Tail> | undefined) => `${time(values?.p95)} / ${time(values?.p99)}`;
+  const contextChecks = contextComparisons.find((row) => row.workspaceId === 458)?.requests ?? 0;
+  const missing = (row: typeof quality) => row.missingCases.map(({ caseId, requests }) => `${caseId} ${requests}건`).join(" · ") || "없음";
+
+  return (
+    <section className={`panel ${styles.metricCard} ${styles.qwenReport}`} aria-label="오래 기다린 회의 종합 우선 처리">
+      <h2>오래 기다린 회의 종합 우선 처리</h2>
+      <p>생성 슬롯 2개를 공유합니다. 종합이 {promotionWaitMs / 1000}초 이상 기다리면 다음 빈 슬롯에서 먼저 시작합니다.</p>
+      <label className={styles.picker}>
+        종합 대기 실험 부하
+        <select value={scenario} onChange={(event) => setScenario(event.target.value)}>
+          <option value="surge">내용 질문 집중 · 최대 6건</option>
+          <option value="3">균등 부하 · 동시 3건</option>
+          <option value="6">균등 부하 · 동시 6건</option>
+        </select>
+      </label>
+      <p>{isSurge
+        ? "한 회차에 내용 질문 4건을 시차를 두고 보내고, 중간에 종합 1건과 문서 찾기 1건을 넣었습니다."
+        : "세 경로를 같은 비율로 보냈습니다. 내용 질문 우선은 직전 균등 부하 실측값입니다."} 각 셀은 p95 / p99이며 단위는 초입니다.</p>
+      <table className={styles.timingTable} aria-label="종합 대기 승격 전후 지연 비교">
+        <thead><tr><th scope="col">측정 구간</th><th scope="col">내용 질문 우선</th><th scope="col">대기한 종합 승격</th></tr></thead>
+        {level.routes.map((row) => {
+          const prior = baseline.routes.find((route) => route.route === row.route);
+          return (
+            <tbody key={row.route}>
+              <tr><th scope="rowgroup" colSpan={3}>{routeLabels[row.route]} · 각 {row.stages.firstSse.samples}건</th></tr>
+              {workerRows.map(([key, label]) => (
+                <tr key={key}><th scope="row">{label}</th><td>{tail(prior?.stages[key])}</td><td>{tail(row.stages[key])}</td></tr>
+              ))}
+            </tbody>
+          );
+        })}
+      </table>
+      <p>이 조건에서 우선 처리된 종합 {promotedByConcurrency[String(concurrency)] ?? 0}건. 아래 완료·인용 수는 {isSurge ? "집중 부하 전체" : "균등 3·6건 전체"}입니다.</p>
+      {isSurge && <p>종합이 마지막 내용 질문보다 먼저 시작한 회차는 {comparison.surge.wavesWithEarlierSynthesis.before} → {comparison.surge.wavesWithEarlierSynthesis.after}회였습니다.</p>}
+      <p>SSE 완료 {before.completed}/{before.requests} → {after.completed}/{after.requests}건 · 문서 찾기 {before.lookupRequests} → {after.lookupRequests}건 · 생성 {before.lookupGenerationCalls} → {after.lookupGenerationCalls}회 · 분류 {before.lookupClassificationCalls} → {after.lookupClassificationCalls}회</p>
+      <h3>Workspace 458 최종 인용</h3>
+      <dl className={`${styles.metrics} ${styles.comparisonMetrics}`}>
+        <dt>기대 회의가 줄어든 검색 문맥</dt><dd>{ratio(quality.meetingContextRegressions, contextChecks)}</dd>
+        <dt>기대 회의를 모두 인용한 답변</dt><dd>{previous.allExpectedMeetingsCited}/{previous.generated} → {quality.allExpectedMeetingsCited}/{quality.generated}건</dd>
+        <dt>원문·저장 출처와 일치한 인용</dt><dd>{previous.exactCitations}/{previous.citationCount} → {quality.exactCitations}/{quality.citationCount}개</dd>
+        <dt>S18-01 · 기대 문서를 최종 인용</dt><dd>{previous.trackedCase.allExpectedDocumentsCited}/{previous.trackedCase.requests} → {quality.trackedCase.allExpectedDocumentsCited}/{quality.trackedCase.requests}건</dd>
+      </dl>
+      <p>기대 회의 인용 누락 사례 {missing(previous)} → {missing(quality)}. <a href={`${repo}/tree/codex/hybrid-search-lookup-worker/experiments/hybrid-search`}>실험 코드와 재실행 방법</a></p>
+    </section>
+  );
+}
 
 function GenerationPolicyReport({ comparison, concurrency }: {
   readonly comparison: z.infer<typeof GenerationComparison>;
