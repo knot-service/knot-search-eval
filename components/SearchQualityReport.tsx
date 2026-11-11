@@ -45,6 +45,16 @@ const RepresentativeReport = z.object({
 const SupportingDocumentReport = RepresentativeReport.extend({
   variants: z.array(RecoveryTrial.extend({ targetRecovered: z.number() })),
 });
+const BudgetTable = z.object({
+  columns: z.array(z.number()).min(2),
+  rows: z.array(z.object({ label: z.string(), values: z.array(z.string()) })),
+}).refine(({ columns, rows }) => rows.every(({ values }) => values.length === columns.length));
+const TokenBudgetReport = z.object({
+  search: BudgetTable,
+  live: BudgetTable,
+  sample: z.string(),
+  conclusion: z.string(),
+});
 const Report = z.object({
   supplement: SupplementReport.optional(),
   representative: RepresentativeReport.optional(),
@@ -52,6 +62,7 @@ const Report = z.object({
   supportingSelection: SupportingDocumentReport.optional(),
   protectedSupport: SupportingDocumentReport.optional(),
   remainingEvidence: SupportingDocumentReport.extend({ misses: SupplementReport.shape.misses }).optional(),
+  tokenBudgets: TokenBudgetReport.optional(),
   evidenceStages: z.array(z.object({
     stage: z.number(), setting: z.string(), included: z.number(),
     gained: z.number().nullable(), lost: z.number().nullable(),
@@ -86,7 +97,7 @@ const trackedStages = [
 export function SearchQualityReport({ result }: { readonly result: unknown }) {
   const parsed = Report.safeParse(result);
   if (!parsed.success) return <p role="alert">정확도 1차 결과 형식을 확인해 주세요.</p>;
-  const { s18, evidenceStages, supplement, representative, supportingDocuments, supportingSelection, protectedSupport, remainingEvidence } = parsed.data;
+  const { s18, evidenceStages, supplement, representative, supportingDocuments, supportingSelection, protectedSupport, remainingEvidence, tokenBudgets } = parsed.data;
 
   return (
     <section className={styles.content} aria-label="정확도 1차 전후 비교">
@@ -94,6 +105,7 @@ export function SearchQualityReport({ result }: { readonly result: unknown }) {
         <h2>근거 구절과 인용 정확도</h2>
         <p>비슷한 리랭킹 점수에서는 본문을 우선하고, 검색된 청크에 먼저 토큰을 배분했습니다. 관련도 차이가 큰 후보에는 짧은 구절을 남겨 다른 회의의 근거도 확인할 수 있게 했습니다.</p>
         <ul>
+          {tokenBudgets && <li><a href="#token-budget-heading">문맥 토큰 예산과 Qwen 최종 인용</a></li>}
           {evidenceStages && <li><a href="#evidence-stages-heading">기대 근거 구절 개선 · 0~5단계 결과</a></li>}
           {supplement && <li><a href="#supplement-heading">빈 문맥 슬롯 · 겹침 감점 실험</a></li>}
           {representative && <li><a href="#representative-heading">회의별 대표와 문맥 범위 실험</a></li>}
@@ -103,6 +115,15 @@ export function SearchQualityReport({ result }: { readonly result: unknown }) {
           {supportingSelection && <li><a href="#supporting-selection-heading">보조 문서 선택 개선</a></li>}
         </ul>
       </div>
+      {tokenBudgets && (
+        <section className={`panel ${styles.metricCard}`} aria-labelledby="token-budget-heading">
+          <h3 id="token-budget-heading" className={styles.evidenceHeading}>문맥 토큰 예산과 Qwen 최종 인용</h3>
+          <p>{tokenBudgets.conclusion}</p>
+          <BudgetComparison label="검색·문맥 재생" table={tokenBudgets.search} />
+          <p className={styles.runHeading}>{tokenBudgets.sample}</p>
+          <BudgetComparison label="Spring·Qwen 실응답" table={tokenBudgets.live} />
+        </section>
+      )}
       {remainingEvidence && <TargetedRecoveryComparison report={remainingEvidence} targetCount={108}
         headingId="remaining-evidence-heading" title="남은 108구절 · 누락 단계와 문맥 확장" misses={remainingEvidence.misses} />}
       {protectedSupport && <TargetedRecoveryComparison report={protectedSupport} targetCount={38}
@@ -192,6 +213,30 @@ export function SearchQualityReport({ result }: { readonly result: unknown }) {
         </section>
       )}
     </section>
+  );
+}
+
+function BudgetComparison({ label, table }: {
+  readonly label: string;
+  readonly table: z.infer<typeof BudgetTable>;
+}) {
+  return (
+    <table className={styles.timingTable} aria-label={label}>
+      <thead>
+        <tr>
+          <th scope="col">{label}</th>
+          {table.columns.map((budget) => <th scope="col" key={budget}>{budget.toLocaleString("ko-KR")}</th>)}
+        </tr>
+      </thead>
+      <tbody>
+        {table.rows.map(({ label, values }) => (
+          <tr key={label}>
+            <th scope="row">{label}</th>
+            {values.map((value, index) => <td key={table.columns[index]}>{value}</td>)}
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 
