@@ -55,7 +55,9 @@ const TokenBudgetReport = z.object({
   sample: z.string(),
   conclusion: z.string(),
 });
-const BeforeAfterRow = z.object({ label: z.string(), before: z.string(), after: z.string() });
+const BeforeAfterRow = z.object({
+  label: z.string(), before: z.string(), after: z.string(), meetingGroups: z.string().optional(),
+});
 const MeetingEvidenceReport = z.object({
   conclusion: z.string(),
   replay: z.array(BeforeAfterRow),
@@ -73,6 +75,7 @@ const Report = z.object({
   discoveryEvidence: SupportingDocumentReport.extend({ misses: SupplementReport.shape.misses }).optional(),
   tokenBudgets: TokenBudgetReport.optional(),
   meetingEvidence: MeetingEvidenceReport.optional(),
+  topicStatusEvidence: MeetingEvidenceReport.optional(),
   evidenceStages: z.array(z.object({
     stage: z.number(), setting: z.string(), included: z.number(),
     gained: z.number().nullable(), lost: z.number().nullable(),
@@ -109,7 +112,7 @@ export function SearchQualityReport({ result }: { readonly result: unknown }) {
   if (!parsed.success) return <p role="alert">정확도 1차 결과 형식을 확인해 주세요.</p>;
   const {
     s18, evidenceStages, supplement, representative, supportingDocuments, supportingSelection,
-    protectedSupport, remainingEvidence, tokenBudgets, sameDocumentEvidence, discoveryEvidence, meetingEvidence,
+    protectedSupport, remainingEvidence, tokenBudgets, sameDocumentEvidence, discoveryEvidence, meetingEvidence, topicStatusEvidence,
   } = parsed.data;
 
   return (
@@ -118,6 +121,7 @@ export function SearchQualityReport({ result }: { readonly result: unknown }) {
         <h2>근거 구절과 인용 정확도</h2>
         <p>비슷한 리랭킹 점수에서는 본문을 우선하고, 검색된 청크에 먼저 토큰을 배분했습니다. 관련도 차이가 큰 후보에는 짧은 구절을 남겨 다른 회의의 근거도 확인할 수 있게 했습니다.</p>
         <ul>
+          {topicStatusEvidence && <li><a href="#topic-status-heading">4,096토큰 · 질문 대상과 상태, 회의 ID 묶기</a></li>}
           {meetingEvidence && <li><a href="#meeting-evidence-heading">4,096토큰 · 회의별 핵심 구절 우선 배정</a></li>}
           {discoveryEvidence && <li><a href="#discovery-evidence-heading">4,096토큰 · 검색 범위와 추가 후보 리랭킹</a></li>}
           {sameDocumentEvidence && <li><a href="#same-document-evidence-heading">4,096토큰 · 같은 문서의 추가 근거</a></li>}
@@ -131,6 +135,16 @@ export function SearchQualityReport({ result }: { readonly result: unknown }) {
           {supportingSelection && <li><a href="#supporting-selection-heading">보조 문서 선택 개선</a></li>}
         </ul>
       </div>
+      {topicStatusEvidence && (
+        <section className={`panel ${styles.metricCard}`} aria-labelledby="topic-status-heading">
+          <h3 id="topic-status-heading" className={styles.evidenceHeading}>4,096토큰 · 질문 대상과 상태, 회의 ID 묶기</h3>
+          <p>{topicStatusEvidence.conclusion}</p>
+          <BeforeAfterTable label="두 워크스페이스 검색 재생" rows={topicStatusEvidence.replay} afterLabel="대상·상태" />
+          <BeforeAfterTable label="Qwen 답변과 인용 대조" rows={topicStatusEvidence.live}
+            meetingGroupsLabel="묶기만" afterLabel="선택+묶기" />
+          <ul>{topicStatusEvidence.notes.map((note) => <li key={note}>{note}</li>)}</ul>
+        </section>
+      )}
       {meetingEvidence && (
         <section className={`panel ${styles.metricCard}`} aria-labelledby="meeting-evidence-heading">
           <h3 id="meeting-evidence-heading" className={styles.evidenceHeading}>4,096토큰 · 회의별 핵심 구절 우선 배정</h3>
@@ -269,20 +283,30 @@ function BudgetComparison({ label, table }: {
   );
 }
 
-function BeforeAfterTable({ label, rows }: {
+function BeforeAfterTable({ label, rows, afterLabel = "핵심 우선", meetingGroupsLabel }: {
   readonly label: string;
   readonly rows: readonly z.infer<typeof BeforeAfterRow>[];
+  readonly afterLabel?: string;
+  readonly meetingGroupsLabel?: string;
 }) {
   return (
     <>
       <h4 className={styles.runHeading}>{label}</h4>
       <table className={`${styles.timingTable} ${styles.recoveryTable}`} aria-label={label}>
         <thead>
-          <tr><th scope="col">지표</th><th scope="col">기존</th><th scope="col">핵심 우선</th></tr>
+          <tr>
+            <th scope="col">지표</th><th scope="col">기존</th>
+            {meetingGroupsLabel && <th scope="col">{meetingGroupsLabel}</th>}
+            <th scope="col">{afterLabel}</th>
+          </tr>
         </thead>
         <tbody>
-          {rows.map(({ label, before, after }) => (
-            <tr key={label}><th scope="row">{label}</th><td>{before}</td><td>{after}</td></tr>
+          {rows.map(({ label, before, after, meetingGroups }) => (
+            <tr key={label}>
+              <th scope="row">{label}</th><td>{before}</td>
+              {meetingGroupsLabel && <td>{meetingGroups}</td>}
+              <td>{after}</td>
+            </tr>
           ))}
         </tbody>
       </table>
