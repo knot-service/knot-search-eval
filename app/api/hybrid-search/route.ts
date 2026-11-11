@@ -5,9 +5,12 @@ import { z } from "zod";
 import { verifySession } from "../../../lib/auth";
 import { readWorkspace1Artifact } from "../../../lib/db";
 import { toWorkspace1Dataset } from "../../../lib/workspace1-dataset";
+import phase4 from "../../../data/hybrid-search-phase4.json";
+import phase5 from "../../../data/hybrid-search-phase5.json";
+import phase6 from "../../../data/hybrid-search-phase6.json";
 
 export const dynamic = "force-dynamic";
-const Kind = z.enum(["comparison", "lookup", "synthesis", "corpus", "dataset", "phase1", "phase2", "phase3"]);
+const Kind = z.enum(["comparison", "lookup", "synthesis", "corpus", "dataset", "phase1", "phase2", "phase3", "phase4", "phase5", "phase6"]);
 const headers = { "Cache-Control": "no-store" };
 
 async function workspaceArtifact(kind: "dataset" | "phase1" | "phase2" | "phase3") {
@@ -58,9 +61,10 @@ async function forward(req: Request) {
     return Response.json({ error: "실험 유형을 선택해 주세요." }, { status: 400 });
   }
   const target = kind.data;
+  const springReport = target === "phase4" || target === "phase5" || target === "phase6";
   const artifact = target === "dataset" || target === "phase1" || target === "phase2" || target === "phase3";
   if (
-    (!local && !(process.env.VERCEL && artifact)) ||
+    (!local && !(process.env.VERCEL && (artifact || springReport))) ||
     (req.method === "POST" && req.headers.get("origin") !== `http://${host}`)
   ) {
     return Response.json({ error: "실험 실행은 로컬 평가실에서 사용할 수 있습니다." }, { status: 403 });
@@ -68,6 +72,10 @@ async function forward(req: Request) {
   const session = (await cookies()).get("knot_eval_session")?.value;
   if (!verifySession(session, process.env.SESSION_SECRET)) {
     return Response.json({ error: "로그인이 필요합니다." }, { status: 401 });
+  }
+  if (springReport) {
+    if (req.method !== "GET") return Response.json({ error: "게시된 실험 결과는 조회만 지원합니다." }, { status: 405 });
+    return Response.json({ phase4, phase5, phase6 }[target], { headers });
   }
   if (artifact) {
     return req.method === "GET"

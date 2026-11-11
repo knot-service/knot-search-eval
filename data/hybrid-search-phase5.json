@@ -1,0 +1,40 @@
+{
+  "workspaces": [
+    {
+      "workspaceId": 1,
+      "cases": 205,
+      "synthesisCases": 140,
+      "allMeetingsBefore": 135,
+      "allMeetingsAfter": 131,
+      "citationMatches": 19,
+      "citationCount": 19,
+      "supportedClaims": 11,
+      "claimCount": 14,
+      "rerankP95Ms": 457.44,
+      "contextP95Ms": 2.76,
+      "sseCompleted": 7,
+      "lookupCalls": 0,
+      "lookupCount": 2,
+      "allCitedMeetings": 1,
+      "liveSynthesisCases": 3
+    },
+    {
+      "workspaceId": 458,
+      "cases": 55,
+      "synthesisCases": 8,
+      "allMeetingsBefore": 6,
+      "allMeetingsAfter": 6,
+      "citationMatches": 12,
+      "citationCount": 12,
+      "supportedClaims": 10,
+      "claimCount": 10,
+      "rerankP95Ms": 352.82,
+      "contextP95Ms": 2.27,
+      "sseCompleted": 7,
+      "lookupCalls": 0,
+      "lookupCount": 2,
+      "allCitedMeetings": 3,
+      "liveSynthesisCases": 3
+    }
+  ]
+}

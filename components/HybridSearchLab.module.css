@@ -164,3 +164,36 @@
 }
 
 .metricRow { display: contents; }
+
+.runHeading {
+  margin: 14px 0 0;
+  color: var(--body);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.content a {
+  color: var(--violet);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.loadSummary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin: 0;
+}
+
+.loadSummary dt {
+  color: var(--body);
+  font-size: 13px;
+}
+
+.loadSummary dd {
+  margin: 4px 0 0;
+  color: var(--ink);
+  font-size: clamp(15px, 2vw, 21px);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}

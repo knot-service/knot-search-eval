@@ -1,0 +1,56 @@
+{
+  "workspaces": [
+    {
+      "workspaceId": 1,
+      "cases": 1967,
+      "routeMatches": 1945,
+      "documentRecall": 0.9603033384172174,
+      "live": [
+        {
+          "route": "MEETING_QUESTION",
+          "generationCalls": 1,
+          "firstMs": 2409.93,
+          "completedMs": 2965.36
+        },
+        {
+          "route": "DOCUMENT_FIND",
+          "generationCalls": 0,
+          "firstMs": 230.76,
+          "completedMs": 233.64
+        },
+        {
+          "route": "MULTI_MEETING_SYNTHESIS",
+          "generationCalls": 1,
+          "firstMs": 1642.88,
+          "completedMs": 2939.97
+        }
+      ]
+    },
+    {
+      "workspaceId": 458,
+      "cases": 55,
+      "routeMatches": 55,
+      "documentRecall": 0.8,
+      "live": [
+        {
+          "route": "MEETING_QUESTION",
+          "generationCalls": 1,
+          "firstMs": 1434.54,
+          "completedMs": 1655.69
+        },
+        {
+          "route": "MULTI_MEETING_SYNTHESIS",
+          "generationCalls": 1,
+          "firstMs": 1531.58,
+          "completedMs": 1971.2
+        },
+        {
+          "route": "DOCUMENT_FIND",
+          "generationCalls": 0,
+          "firstMs": 119.19,
+          "completedMs": 121.34
+        }
+      ]
+    }
+  ]
+}

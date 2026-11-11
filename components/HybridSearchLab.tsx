@@ -6,6 +6,7 @@ import styles from "./HybridSearchLab.module.css";
 import { Workspace1EvaluationDraft } from "./Workspace1EvaluationDraft";
 import { Workspace1Phase1 } from "./Workspace1Phase1";
 import { Workspace1SearchQuality } from "./Workspace1SearchQuality";
+import { SpringSearchReport } from "./SpringSearchReport";
 
 const modes = [
   { id: "keyword", label: "키워드" },
@@ -21,6 +22,9 @@ const tabs = [
   { id: "phase1", label: "1차 청킹 비교" },
   { id: "phase2", label: "2차 하이브리드" },
   { id: "phase3", label: "3차 리랭킹" },
+  { id: "phase4", label: "4차 Spring 경로" },
+  { id: "phase5", label: "5차 근거·출처" },
+  { id: "phase6", label: "6차 혼합 부하" },
 ] as const;
 type Tab = (typeof tabs)[number]["id"];
 type Kind = "comparison" | "lookup" | "synthesis";
@@ -89,6 +93,7 @@ export function HybridSearchLab({ localAccess }: { readonly localAccess: boolean
       {tab === "dataset" && <Workspace1EvaluationDraft />}
       {tab === "phase1" && <Workspace1Phase1 />}
       {(tab === "phase2" || tab === "phase3") && <Workspace1SearchQuality key={tab} stage={tab} />}
+      {(tab === "phase4" || tab === "phase5" || tab === "phase6") && <SpringSearchReport key={tab} stage={tab} />}
       {(tab === "comparison" || tab === "lookup" || tab === "synthesis") && <RunPanel key={tab} kind={tab} />}
     </section>
   );

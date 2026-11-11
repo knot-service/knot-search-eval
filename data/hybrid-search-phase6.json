@@ -1,0 +1,181 @@
+{
+  "warmupRequests": 6,
+  "wavesPerLevel": 12,
+  "workerConcurrency": 2,
+  "streamConcurrency": 8,
+  "pollIntervalMs": 100,
+  "requests": 108,
+  "completed": 108,
+  "routeMatches": 108,
+  "lookupRequests": 36,
+  "lookupGenerationCalls": 0,
+  "lookupClassificationCalls": 0,
+  "quality": [
+    {
+      "workspaceId": 1,
+      "contextComparisons": 36,
+      "contextRegressions": 0,
+      "contextImprovements": 0,
+      "completedAnswers": 36,
+      "noClaimAnswers": 0,
+      "claims": 103,
+      "uncitedClaims": 0,
+      "exactCitations": 138,
+      "citationCount": 138,
+      "pairedSynthesis": 3,
+      "allCitedMeetingsBefore": 1,
+      "allCitedMeetingsAfter": 2,
+      "semanticClaims": 14,
+      "supportedClaims": 12
+    },
+    {
+      "workspaceId": 458,
+      "contextComparisons": 36,
+      "contextRegressions": 0,
+      "contextImprovements": 0,
+      "completedAnswers": 36,
+      "noClaimAnswers": 0,
+      "claims": 71,
+      "uncitedClaims": 0,
+      "exactCitations": 76,
+      "citationCount": 76,
+      "pairedSynthesis": 3,
+      "allCitedMeetingsBefore": 3,
+      "allCitedMeetingsAfter": 3,
+      "semanticClaims": 10,
+      "supportedClaims": 9
+    }
+  ],
+  "levels": [
+    {
+      "concurrency": 3,
+      "routes": [
+        {
+          "route": "DOCUMENT_FIND",
+          "requests": 12,
+          "terminals": {
+            "completed": 12
+          },
+          "firstMs": {
+            "samples": 12,
+            "p95": 3731.31,
+            "p99": 3731.31
+          },
+          "completedMs": {
+            "samples": 12,
+            "p95": 3731.35,
+            "p99": 3731.35
+          },
+          "generationCalls": 0,
+          "workerQueueP95Ms": 3607,
+          "workerRetrievalP95Ms": 105
+        },
+        {
+          "route": "MEETING_QUESTION",
+          "requests": 12,
+          "terminals": {
+            "completed": 12
+          },
+          "firstMs": {
+            "samples": 12,
+            "p95": 4951.24,
+            "p99": 4951.24
+          },
+          "completedMs": {
+            "samples": 12,
+            "p95": 4951.47,
+            "p99": 4951.47
+          },
+          "generationCalls": 12,
+          "workerQueueP95Ms": 91,
+          "workerRetrievalP95Ms": 1095
+        },
+        {
+          "route": "MULTI_MEETING_SYNTHESIS",
+          "requests": 12,
+          "terminals": {
+            "completed": 12
+          },
+          "firstMs": {
+            "samples": 12,
+            "p95": 6516.32,
+            "p99": 6516.32
+          },
+          "completedMs": {
+            "samples": 12,
+            "p95": 6516.5,
+            "p99": 6516.5
+          },
+          "generationCalls": 12,
+          "workerQueueP95Ms": 276,
+          "workerRetrievalP95Ms": 916
+        }
+      ]
+    },
+    {
+      "concurrency": 6,
+      "routes": [
+        {
+          "route": "DOCUMENT_FIND",
+          "requests": 24,
+          "terminals": {
+            "completed": 24
+          },
+          "firstMs": {
+            "samples": 24,
+            "p95": 6887.59,
+            "p99": 7253.65
+          },
+          "completedMs": {
+            "samples": 24,
+            "p95": 6992.86,
+            "p99": 7253.71
+          },
+          "generationCalls": 0,
+          "workerQueueP95Ms": 6797,
+          "workerRetrievalP95Ms": 111
+        },
+        {
+          "route": "MEETING_QUESTION",
+          "requests": 24,
+          "terminals": {
+            "completed": 24
+          },
+          "firstMs": {
+            "samples": 24,
+            "p95": 7405.24,
+            "p99": 8477.77
+          },
+          "completedMs": {
+            "samples": 24,
+            "p95": 7405.38,
+            "p99": 8477.98
+          },
+          "generationCalls": 24,
+          "workerQueueP95Ms": 4562,
+          "workerRetrievalP95Ms": 998
+        },
+        {
+          "route": "MULTI_MEETING_SYNTHESIS",
+          "requests": 24,
+          "terminals": {
+            "completed": 24
+          },
+          "firstMs": {
+            "samples": 24,
+            "p95": 9234.63,
+            "p99": 9575.38
+          },
+          "completedMs": {
+            "samples": 24,
+            "p95": 9234.85,
+            "p99": 9686.29
+          },
+          "generationCalls": 24,
+          "workerQueueP95Ms": 4994,
+          "workerRetrievalP95Ms": 687
+        }
+      ]
+    }
+  ]
+}
