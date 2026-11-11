@@ -221,7 +221,7 @@ function BudgetComparison({ label, table }: {
   readonly table: z.infer<typeof BudgetTable>;
 }) {
   return (
-    <table className={styles.timingTable} aria-label={label}>
+    <table className={`${styles.timingTable} ${styles.recoveryTable}`} aria-label={label}>
       <thead>
         <tr>
           <th scope="col">{label}</th>
