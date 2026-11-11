@@ -1,6 +1,7 @@
 "use client";
 import { StageResult } from "./StageResult";
 import { HybridSearchLab } from "./HybridSearchLab";
+import { Workspace1EvaluationDraft } from "./Workspace1EvaluationDraft";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   LayoutDashboard,
@@ -42,6 +43,7 @@ const nav: { id: Page; label: string; icon: typeof Search }[] = [
   { id: "compare", label: "실험 비교", icon: GitCompareArrows },
   { id: "reviews", label: "검수 이력", icon: ClipboardCheck },
 ];
+const workspace1DatasetKey = "workspace1-published";
 const labels: Record<string, string> = {
   answer: "문서 답변",
   not_found: "확인 불가",
@@ -249,6 +251,7 @@ export function Dashboard() {
           ? `${datasets[datasets.length - 1].id}:${datasets[datasets.length - 1].version}`
           : ""
       : datasetFilter;
+  const workspace1Selected = activeDataset === workspace1DatasetKey;
   const filtered = allCases.filter(
     (c) =>
       (!activeDataset ||
@@ -344,7 +347,7 @@ export function Dashboard() {
         </div>
         <p className="side-label">WORKSPACE</p>
         <nav>
-          {nav.filter(({ id }) => id !== "hybrid" || localAccess).map(({ id, label, icon: Icon }) => (
+          {nav.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               onClick={() => go(id)}
@@ -360,8 +363,8 @@ export function Dashboard() {
           <div className="privacy">
             <ShieldCheck size={16} />
             <div>
-              <strong>{page === "hybrid" ? "격리된 로컬 데이터" : "합성 데이터 전용"}</strong>
-              <small>{page === "hybrid" ? "운영 복사본과 합성 문서를 구분해요" : "실제 회의 데이터는 사용하지 않아요"}</small>
+              <strong>{page === "hybrid" || (page === "datasets" && workspace1Selected) ? "Workspace 1 평가 자료" : "합성 데이터 전용"}</strong>
+              <small>{page === "hybrid" || (page === "datasets" && workspace1Selected) ? "검수용 질문과 문서 인용을 확인해요" : "실제 회의 데이터는 사용하지 않아요"}</small>
             </div>
           </div>
           <button className="logout" onClick={logout}>
@@ -381,8 +384,8 @@ export function Dashboard() {
               <button onClick={() => setError("")}>닫기</button>
             </div>
           )}
-          {page === "hybrid" && localAccess ? (
-            <HybridSearchLab />
+          {page === "hybrid" ? (
+            <HybridSearchLab key={String(localAccess)} localAccess={localAccess} />
           ) : !state ? (
             <div className="empty">
               {error
@@ -557,7 +560,7 @@ export function Dashboard() {
                       />
                     </label>
                   </div>
-                  {meetingDataset && (
+                  {!workspace1Selected && meetingDataset && (
                     <section className="review-summary" aria-label="평가셋 검수 현황">
                       <div className="review-summary-heading">
                         <div>
@@ -576,19 +579,20 @@ export function Dashboard() {
                     </section>
                   )}
                   <div className="toolbar">
-                    <div className="search">
+                    {!workspace1Selected && <div className="search">
                       <Search size={16} />
                       <input
                         placeholder="사례나 시나리오 검색"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                       />
-                    </div>
+                    </div>}
                     <select
                       aria-label="평가셋 선택"
                       value={activeDataset}
                       onChange={(e) => setDatasetFilter(e.target.value)}
                     >
+                      <option value={workspace1DatasetKey}>Workspace 1 · 운영 문서 평가셋</option>
                       {displayDatasets.map((d) => (
                         <option
                           key={`${d.id}:${d.version}`}
@@ -598,9 +602,9 @@ export function Dashboard() {
                         </option>
                       ))}
                     </select>
-                    <span className="muted">{filtered.length}개 사례</span>
+                    {!workspace1Selected && <span className="muted">{filtered.length}개 사례</span>}
                   </div>
-                  {!displayDatasets.length ? (
+                  {workspace1Selected ? <Workspace1EvaluationDraft /> : !displayDatasets.length ? (
                     <div className="panel empty">
                       등록된 평가셋이 없어요.
                       <button
@@ -1031,7 +1035,7 @@ export function Dashboard() {
             </>
           )}
           <footer>
-            knot <span>·</span> Search Evaluation <span>·</span> {page === "hybrid" ? "격리된 로컬 데이터" : "합성 데이터 전용"}
+            knot <span>·</span> Search Evaluation <span>·</span> {page === "hybrid" || (page === "datasets" && workspace1Selected) ? "Workspace 1 평가 자료" : "합성 데이터 전용"}
           </footer>
         </div>
       </main>

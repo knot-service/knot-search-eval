@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import styles from "./HybridSearchLab.module.css";
+import { Workspace1EvaluationDraft } from "./Workspace1EvaluationDraft";
+import { Workspace1Phase1 } from "./Workspace1Phase1";
 
 const modes = [
   { id: "keyword", label: "키워드" },
@@ -14,9 +16,11 @@ const tabs = [
   { id: "lookup", label: "문서 찾기" },
   { id: "synthesis", label: "회의 종합" },
   { id: "corpus", label: "워크스페이스" },
+  { id: "dataset", label: "평가셋 초안" },
+  { id: "phase1", label: "1차 청킹 비교" },
 ] as const;
 type Tab = (typeof tabs)[number]["id"];
-type Kind = Exclude<Tab, "corpus">;
+type Kind = Exclude<Tab, "corpus" | "dataset" | "phase1">;
 
 const Candidate = z.object({
   id: z.number(), title: z.string(), recordedAt: z.string(), score: z.number(),
@@ -60,8 +64,9 @@ async function load(kind: Kind, method: "GET" | "POST", signal?: AbortSignal) {
   return Run.nullable().parse(data);
 }
 
-export function HybridSearchLab() {
-  const [tab, setTab] = useState<Tab>("comparison");
+export function HybridSearchLab({ localAccess }: { readonly localAccess: boolean }) {
+  const [tab, setTab] = useState<Tab>(localAccess ? "comparison" : "dataset");
+  const visibleTabs = tabs.filter(({ id }) => localAccess || id === "dataset" || id === "phase1");
   return (
     <section aria-label="하이브리드 검색 실험">
       <div className="heading">
@@ -71,13 +76,16 @@ export function HybridSearchLab() {
         </div>
       </div>
       <nav className={styles.tabs} aria-label="하이브리드 검색 실험 유형">
-        {tabs.map(({ id, label }) => (
+        {visibleTabs.map(({ id, label }) => (
           <button key={id} type="button" aria-pressed={tab === id} onClick={() => setTab(id)}>
             {label}
           </button>
         ))}
       </nav>
-      {tab === "corpus" ? <CorpusPanel /> : <RunPanel key={tab} kind={tab} />}
+      {tab === "corpus" && <CorpusPanel />}
+      {tab === "dataset" && <Workspace1EvaluationDraft />}
+      {tab === "phase1" && <Workspace1Phase1 />}
+      {(tab === "comparison" || tab === "lookup" || tab === "synthesis") && <RunPanel key={tab} kind={tab} />}
     </section>
   );
 }

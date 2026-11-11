@@ -1,6 +1,6 @@
 # Knot 탐색 평가 어드민
 
-합성 회의 문서와 사용자 사례로 로컬 Knot Spring 탐색을 실행하고 결과를 검수·비교합니다. 실제 회의 원문이나 운영 DB는 평가 데이터로 가져오지 않습니다.
+합성 회의 문서와 사용자 사례로 로컬 Knot Spring 탐색을 실행하고 결과를 검수·비교합니다. Workspace 1 평가셋은 운영에서 생성된 저장 문서의 검수용 질문과 근거 인용을 보여줍니다.
 
 ## 접속
 
@@ -30,3 +30,9 @@ npm run build
 ```
 
 합성 회의록 생성에는 백엔드의 `generation-system.txt`, `generation-template.md`, `generation-schema.json`을 사용합니다. 생성 원본·자동 검토 결과·실험 로그는 Git 제외 경로인 `backend/resume/search-eval/`에 보관합니다.
+
+## Workspace 1 평가셋
+
+**평가셋**에서 **Workspace 1 · 운영 문서 평가셋**을 선택한다. 한 시나리오에 기본, 구어체, 오타, 간투사, 담화표지, 군더더기, 혼합형 질문과 공통 기대 근거가 있다. **하이브리드 검색 실험 → 1차 청킹 비교**에서는 표현 유형별 검색 결과를 확인할 수 있다.
+
+로컬 평가실은 옆의 `knot-search-hybrid-eval/experiments/hybrid-search/.local/`에서 파일을 읽는다. Vercel은 기존 Neon 연결의 `eval_workspace1_artifacts`에서 로그인한 평가자에게 동일한 평가셋과 집계를 제공한다. 평가셋과 결과의 버전과 원본 식별자가 일치하면 `scripts/publish-workspace1-artifacts.ts`로 이관할 수 있다. 운영 문서의 전체 본문과 검색 후보별 실행 기록은 전용 로컬 저장소에 둔다.
