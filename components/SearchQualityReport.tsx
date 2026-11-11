@@ -51,6 +51,7 @@ const Report = z.object({
   supportingDocuments: SupportingDocumentReport.optional(),
   supportingSelection: SupportingDocumentReport.optional(),
   protectedSupport: SupportingDocumentReport.optional(),
+  remainingEvidence: SupportingDocumentReport.extend({ misses: SupplementReport.shape.misses }).optional(),
   evidenceStages: z.array(z.object({
     stage: z.number(), setting: z.string(), included: z.number(),
     gained: z.number().nullable(), lost: z.number().nullable(),
@@ -85,7 +86,7 @@ const trackedStages = [
 export function SearchQualityReport({ result }: { readonly result: unknown }) {
   const parsed = Report.safeParse(result);
   if (!parsed.success) return <p role="alert">정확도 1차 결과 형식을 확인해 주세요.</p>;
-  const { s18, evidenceStages, supplement, representative, supportingDocuments, supportingSelection, protectedSupport } = parsed.data;
+  const { s18, evidenceStages, supplement, representative, supportingDocuments, supportingSelection, protectedSupport, remainingEvidence } = parsed.data;
 
   return (
     <section className={styles.content} aria-label="정확도 1차 전후 비교">
@@ -97,10 +98,13 @@ export function SearchQualityReport({ result }: { readonly result: unknown }) {
           {supplement && <li><a href="#supplement-heading">빈 문맥 슬롯 · 겹침 감점 실험</a></li>}
           {representative && <li><a href="#representative-heading">회의별 대표와 문맥 범위 실험</a></li>}
           {supportingDocuments && <li><a href="#supporting-document-heading">같은 회의의 보조 근거 실험</a></li>}
+          {remainingEvidence && <li><a href="#remaining-evidence-heading">남은 108구절 · 누락 단계와 문맥 확장</a></li>}
           {protectedSupport && <li><a href="#protected-support-heading">기존 근거를 보존한 보조 문서 개선</a></li>}
           {supportingSelection && <li><a href="#supporting-selection-heading">보조 문서 선택 개선</a></li>}
         </ul>
       </div>
+      {remainingEvidence && <TargetedRecoveryComparison report={remainingEvidence} targetCount={108}
+        headingId="remaining-evidence-heading" title="남은 108구절 · 누락 단계와 문맥 확장" misses={remainingEvidence.misses} />}
       {protectedSupport && <TargetedRecoveryComparison report={protectedSupport} targetCount={38}
         headingId="protected-support-heading" title="기존 근거를 보존한 보조 문서 개선" />}
       {supportingSelection && <TargetedRecoveryComparison report={supportingSelection} targetCount={49}
@@ -191,9 +195,10 @@ export function SearchQualityReport({ result }: { readonly result: unknown }) {
   );
 }
 
-function TargetedRecoveryComparison({ report, targetCount, headingId, title }: {
+function TargetedRecoveryComparison({ report, targetCount, headingId, title, misses }: {
   readonly report: z.infer<typeof SupportingDocumentReport>;
   readonly targetCount: number;
+  readonly misses?: z.infer<typeof SupplementReport.shape.misses>;
   readonly headingId: string;
   readonly title: string;
 }) {
@@ -201,6 +206,11 @@ function TargetedRecoveryComparison({ report, targetCount, headingId, title }: {
     <section className={`panel ${styles.metricCard}`} aria-labelledby={headingId}>
       <h3 id={headingId} className={styles.evidenceHeading}>{title}</h3>
       <p className={styles.runHeading}>{report.summary}</p>
+      {misses && <dl className={styles.metrics}>
+        {misses.map(({ reason, count }) => (
+          <div key={reason} className={styles.metricRow}><dt>{reason}</dt><dd>{count}개</dd></div>
+        ))}
+      </dl>}
       <table className={`${styles.timingTable} ${styles.recoveryTable}`} aria-label={title}>
         <thead>
           <tr>
