@@ -21,20 +21,28 @@ const TrackedCase = z.object({
 });
 const TrackedPair = z.object({ before: TrackedCase, after: TrackedCase });
 const PassageTokens = z.object({ total: z.number(), offTopic: z.number() });
+const CountComparison = z.object({ before: Count, after: Count });
+const CitationComparison = z.object({
+  workspace: z.number(), expectedCited: CountComparison, exactCitations: CountComparison,
+});
+const RecoveryTrial = z.object({ name: z.string(), included: z.number(), gained: z.number(), lost: z.number() });
 const SupplementReport = z.object({
   misses: z.array(z.object({ reason: z.string(), count: z.number() })),
-  variants: z.array(z.object({
-    name: z.string(), included: z.number(), gained: z.number(), lost: z.number(),
-  })),
-  live: z.array(z.object({
-    workspace: z.number(), expectedCited: z.object({ before: Count, after: Count }),
-    exactCitations: z.object({ before: Count, after: Count }),
-  })),
+  variants: z.array(RecoveryTrial),
+  live: z.array(CitationComparison),
+  summary: z.string(),
+  citationSummary: z.string(),
+});
+const RepresentativeReport = z.object({
+  variants: z.array(RecoveryTrial.extend({ fullSlotRecovery: z.number() })),
+  meetings: z.array(z.object({ workspace: z.number(), coverage: CountComparison })),
+  live: z.array(CitationComparison),
   summary: z.string(),
   citationSummary: z.string(),
 });
 const Report = z.object({
   supplement: SupplementReport.optional(),
+  representative: RepresentativeReport.optional(),
   evidenceStages: z.array(z.object({
     stage: z.number(), setting: z.string(), included: z.number(),
     gained: z.number().nullable(), lost: z.number().nullable(),
@@ -69,7 +77,7 @@ const trackedStages = [
 export function SearchQualityReport({ result }: { readonly result: unknown }) {
   const parsed = Report.safeParse(result);
   if (!parsed.success) return <p role="alert">정확도 1차 결과 형식을 확인해 주세요.</p>;
-  const { s18, evidenceStages, supplement } = parsed.data;
+  const { s18, evidenceStages, supplement, representative } = parsed.data;
 
   return (
     <section className={styles.content} aria-label="정확도 1차 전후 비교">
@@ -79,8 +87,10 @@ export function SearchQualityReport({ result }: { readonly result: unknown }) {
         <ul>
           {evidenceStages && <li><a href="#evidence-stages-heading">기대 근거 구절 개선 · 0~5단계 결과</a></li>}
           {supplement && <li><a href="#supplement-heading">빈 문맥 슬롯 · 겹침 감점 실험</a></li>}
+          {representative && <li><a href="#representative-heading">회의별 대표와 문맥 범위 실험</a></li>}
         </ul>
       </div>
+      {representative && <RepresentativeComparison report={representative} />}
       {supplement && <SupplementComparison report={supplement} />}
       <div className={styles.corpora}>
         {parsed.data.workspaces.map(({ workspaceId, before, after }) => (
@@ -163,6 +173,41 @@ export function SearchQualityReport({ result }: { readonly result: unknown }) {
   );
 }
 
+function RepresentativeComparison({ report }: { readonly report: z.infer<typeof RepresentativeReport> }) {
+  return (
+    <section className={`panel ${styles.metricCard}`} aria-labelledby="representative-heading">
+      <h3 id="representative-heading" className={styles.evidenceHeading}>회의별 대표와 문맥 범위 실험</h3>
+      <p className={styles.runHeading}>{report.summary}</p>
+      <table className={`${styles.timingTable} ${styles.recoveryTable}`} aria-label="대표 선택과 문맥 범위 실험 결과">
+        <thead>
+          <tr>
+            <th scope="col">설정</th><th scope="col">포함</th><th scope="col">회복</th>
+            <th scope="col">누락</th><th scope="col">62개 중<br />회복</th>
+          </tr>
+        </thead>
+        <tbody>
+          {report.variants.map(({ name, included, gained, lost, fullSlotRecovery }) => (
+            <tr key={name}>
+              <th scope="row">{name}</th><td>{included}/526</td><td>{gained}</td>
+              <td>{lost}</td><td>{fullSlotRecovery}/62</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <dl className={styles.metrics}>
+        {report.meetings.map(({ workspace, coverage }) => (
+          <div className={styles.metricRow} key={workspace}>
+            <dt>Workspace {workspace} · 기대 회의 모두 포함</dt>
+            <dd>{compare(coverage.before, coverage.after)}</dd>
+          </div>
+        ))}
+        <CitationRows rows={report.live} />
+      </dl>
+      <p>{report.citationSummary}</p>
+    </section>
+  );
+}
+
 function SupplementComparison({ report }: { readonly report: z.infer<typeof SupplementReport> }) {
   return (
     <section className={`panel ${styles.metricCard}`} aria-labelledby="supplement-heading">
@@ -186,20 +231,24 @@ function SupplementComparison({ report }: { readonly report: z.infer<typeof Supp
         </tbody>
       </table>
       <dl className={styles.metrics}>
-        {report.live.map(({ workspace, expectedCited, exactCitations }) => (
-          <Fragment key={workspace}>
-            <div className={styles.metricRow}>
-              <dt>Workspace {workspace} · 기대 문서 모두 인용</dt>
-              <dd>{compare(expectedCited.before, expectedCited.after)}</dd>
-            </div>
-            <div className={styles.metricRow}>
-              <dt>Workspace {workspace} · 원문과 일치한 인용</dt>
-              <dd>{compare(exactCitations.before, exactCitations.after)}</dd>
-            </div>
-          </Fragment>
-        ))}
+        <CitationRows rows={report.live} />
       </dl>
       <p>{report.citationSummary}</p>
     </section>
   );
+}
+
+function CitationRows({ rows }: { readonly rows: z.infer<typeof CitationComparison>[] }) {
+  return rows.map(({ workspace, expectedCited, exactCitations }) => (
+    <Fragment key={workspace}>
+      <div className={styles.metricRow}>
+        <dt>Workspace {workspace} · 기대 문서 모두 인용</dt>
+        <dd>{compare(expectedCited.before, expectedCited.after)}</dd>
+      </div>
+      <div className={styles.metricRow}>
+        <dt>Workspace {workspace} · 원문과 일치한 인용</dt>
+        <dd>{compare(exactCitations.before, exactCitations.after)}</dd>
+      </div>
+    </Fragment>
+  ));
 }

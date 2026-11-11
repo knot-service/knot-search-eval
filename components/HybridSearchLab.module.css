@@ -255,6 +255,10 @@
   white-space: nowrap;
 }
 
+.recoveryTable :is(th, td):not(:first-child) {
+  white-space: nowrap;
+}
+
 @media (max-width: 500px) {
   .timingTable { font-size: 12px; }
   .generationTable { table-layout: fixed; }
