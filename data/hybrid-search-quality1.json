@@ -933,5 +933,118 @@
     ],
     "summary": "두 워크스페이스의 같은 260문항을 재생했습니다. 4,096토큰에서 이미 선택한 본문 발췌는 보존하고, 질문과 겹치는 표현이 있는 문장 쪽으로만 범위를 넓혔습니다. 발췌당 최대 512토큰을 추가한 설정은 선택 단계에서 빠진 9구절과 최종 발췌에서 빠진 8구절을 회복했습니다. 기존 기대 구절의 신규 누락은 0개였습니다.",
     "citationSummary": "같은 19문항을 Spring·Qwen에서 비교했습니다. 문맥 선택에서 회복한 구절 전체의 최종 인용은 0/9 → 2/9였고, 전체 회복 구절의 인용은 0/17 → 7/17였습니다. 문항별 기대 문서 인용은 3건 추가됐고 2건 빠졌습니다. 두 건은 각각 원문과 다른 인용구와 답변당 3문서 한도에서 제외됐습니다. Workspace 458 S18-01은 양쪽에서 #2158을 인용했고, 문서 찾기는 각 4건에서 생성·분류 0회였습니다."
+  },
+  "discoveryEvidence": {
+    "misses": [
+      {
+        "reason": "키워드·벡터 검색 상위 후보 밖",
+        "count": 7
+      },
+      {
+        "reason": "RRF 순위 결합 후 후보에서 제외",
+        "count": 7
+      }
+    ],
+    "variants": [
+      {
+        "name": "4,096 기준선",
+        "included": 487,
+        "gained": 0,
+        "lost": 0,
+        "targetRecovered": 0
+      },
+      {
+        "name": "겹치지 않는 짧은 구간",
+        "included": 489,
+        "gained": 2,
+        "lost": 0,
+        "targetRecovered": 2
+      },
+      {
+        "name": "남은 예산에 맞춰 발췌",
+        "included": 490,
+        "gained": 3,
+        "lost": 0,
+        "targetRecovered": 3
+      }
+    ],
+    "meetings": [
+      {
+        "workspace": 1,
+        "coverage": {
+          "before": {
+            "matched": 136,
+            "total": 140
+          },
+          "after": {
+            "matched": 136,
+            "total": 140
+          }
+        }
+      },
+      {
+        "workspace": 458,
+        "coverage": {
+          "before": {
+            "matched": 6,
+            "total": 8
+          },
+          "after": {
+            "matched": 6,
+            "total": 8
+          }
+        }
+      }
+    ],
+    "live": [
+      {
+        "workspace": 1,
+        "expectedCited": {
+          "before": {
+            "matched": 0,
+            "total": 5
+          },
+          "after": {
+            "matched": 0,
+            "total": 5
+          }
+        },
+        "exactCitations": {
+          "before": {
+            "matched": 22,
+            "total": 22
+          },
+          "after": {
+            "matched": 25,
+            "total": 25
+          }
+        }
+      },
+      {
+        "workspace": 458,
+        "expectedCited": {
+          "before": {
+            "matched": 1,
+            "total": 1
+          },
+          "after": {
+            "matched": 1,
+            "total": 1
+          }
+        },
+        "exactCitations": {
+          "before": {
+            "matched": 3,
+            "total": 3
+          },
+          "after": {
+            "matched": 6,
+            "total": 6
+          }
+        }
+      }
+    ],
+    "summary": "4,096토큰에서 기존 대표 문서를 먼저 고른 뒤, 각 검색의 후보 범위를 120개까지 넓혀 새 본문 후보만 최대 64개 리랭킹했습니다. 대상 14구절 중 13개가 새 후보군에 있었고, 두 워크스페이스의 같은 260문항을 Spring으로 재생해 최종 문맥을 확인했습니다. 남은 예산에 맞춰 발췌하는 설정은 대상 3구절과 전체 3구절을 회복했고, 기존 구절의 신규 누락은 0개였습니다.",
+    "citationSummary": "같은 10문항의 실제 Qwen 응답에서 대상 회복 구절 전체를 그대로 인용한 건수는 0/3 → 0/3였습니다. 남은 예산에 맞춘 설정의 문항별 기대 문서 인용은 0건 추가되고 0건 빠졌습니다. 짧은 구간 설정은 기대 문서 인용 1건을 추가했지만, 회복한 두 구절의 전체 인용은 없었습니다. 문서 찾기 각 4건은 생성·분류 0회였고, Workspace 458 S18-01은 양쪽에서 #2158을 인용했습니다."
   }
 }

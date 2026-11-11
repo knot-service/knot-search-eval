@@ -63,6 +63,7 @@ const Report = z.object({
   protectedSupport: SupportingDocumentReport.optional(),
   remainingEvidence: SupportingDocumentReport.extend({ misses: SupplementReport.shape.misses }).optional(),
   sameDocumentEvidence: SupportingDocumentReport.extend({ misses: SupplementReport.shape.misses }).optional(),
+  discoveryEvidence: SupportingDocumentReport.extend({ misses: SupplementReport.shape.misses }).optional(),
   tokenBudgets: TokenBudgetReport.optional(),
   evidenceStages: z.array(z.object({
     stage: z.number(), setting: z.string(), included: z.number(),
@@ -100,7 +101,7 @@ export function SearchQualityReport({ result }: { readonly result: unknown }) {
   if (!parsed.success) return <p role="alert">정확도 1차 결과 형식을 확인해 주세요.</p>;
   const {
     s18, evidenceStages, supplement, representative, supportingDocuments, supportingSelection,
-    protectedSupport, remainingEvidence, tokenBudgets, sameDocumentEvidence,
+    protectedSupport, remainingEvidence, tokenBudgets, sameDocumentEvidence, discoveryEvidence,
   } = parsed.data;
 
   return (
@@ -109,6 +110,7 @@ export function SearchQualityReport({ result }: { readonly result: unknown }) {
         <h2>근거 구절과 인용 정확도</h2>
         <p>비슷한 리랭킹 점수에서는 본문을 우선하고, 검색된 청크에 먼저 토큰을 배분했습니다. 관련도 차이가 큰 후보에는 짧은 구절을 남겨 다른 회의의 근거도 확인할 수 있게 했습니다.</p>
         <ul>
+          {discoveryEvidence && <li><a href="#discovery-evidence-heading">4,096토큰 · 검색 범위와 추가 후보 리랭킹</a></li>}
           {sameDocumentEvidence && <li><a href="#same-document-evidence-heading">4,096토큰 · 같은 문서의 추가 근거</a></li>}
           {tokenBudgets && <li><a href="#token-budget-heading">문맥 토큰 예산과 Qwen 최종 인용</a></li>}
           {evidenceStages && <li><a href="#evidence-stages-heading">기대 근거 구절 개선 · 0~5단계 결과</a></li>}
@@ -120,6 +122,8 @@ export function SearchQualityReport({ result }: { readonly result: unknown }) {
           {supportingSelection && <li><a href="#supporting-selection-heading">보조 문서 선택 개선</a></li>}
         </ul>
       </div>
+      {discoveryEvidence && <TargetedRecoveryComparison report={discoveryEvidence} targetCount={14}
+        headingId="discovery-evidence-heading" title="4,096토큰 · 검색 범위와 추가 후보 리랭킹" misses={discoveryEvidence.misses} />}
       {sameDocumentEvidence && <TargetedRecoveryComparison report={sameDocumentEvidence} targetCount={35}
         headingId="same-document-evidence-heading" title="4,096토큰 · 같은 문서의 추가 근거" misses={sameDocumentEvidence.misses} />}
       {tokenBudgets && (
