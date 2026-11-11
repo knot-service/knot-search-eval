@@ -360,8 +360,8 @@ export function Dashboard() {
           <div className="privacy">
             <ShieldCheck size={16} />
             <div>
-              <strong>합성 데이터 전용</strong>
-              <small>실제 회의 데이터는 사용하지 않아요</small>
+              <strong>{page === "hybrid" ? "격리된 로컬 데이터" : "합성 데이터 전용"}</strong>
+              <small>{page === "hybrid" ? "운영 복사본과 합성 문서를 구분해요" : "실제 회의 데이터는 사용하지 않아요"}</small>
             </div>
           </div>
           <button className="logout" onClick={logout}>
@@ -1031,8 +1031,7 @@ export function Dashboard() {
             </>
           )}
           <footer>
-            knot <span>·</span> Search Evaluation <span>·</span> 합성 데이터
-            전용
+            knot <span>·</span> Search Evaluation <span>·</span> {page === "hybrid" ? "격리된 로컬 데이터" : "합성 데이터 전용"}
           </footer>
         </div>
       </main>
