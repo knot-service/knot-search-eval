@@ -211,3 +211,33 @@
   padding-inline: 2px;
   color: var(--body);
 }
+
+.qwenReport {
+  display: grid;
+  gap: 12px;
+}
+
+.qwenReport summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.timingTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.timingTable :is(th, td) {
+  padding: 9px 4px;
+  border-bottom: 1px solid var(--line);
+  text-align: right;
+}
+
+.timingTable th:first-child {
+  text-align: left;
+}
+
+@media (max-width: 500px) {
+  .timingTable { font-size: 12px; }
+}

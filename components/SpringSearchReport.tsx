@@ -48,7 +48,35 @@ const MixedLoad = z.object({
     allCitedMeetingsBefore: z.number(), allCitedMeetingsAfter: z.number(),
   })),
 });
-const Phase6 = MixedLoad.extend({ split: MixedLoad });
+const QwenStages = z.object({
+  firstSse: Tail, completedSse: Tail, workerQueue: Tail, retrieval: Tail,
+  rerank: Tail, qwenFirstContent: Tail, qwenStreamTail: Tail,
+});
+const QwenRun = z.object({
+  requests: z.number(), completed: z.number(), routeMatches: z.number(), lookupRequests: z.number(),
+  lookupGenerationCalls: z.number(), lookupClassificationCalls: z.number(),
+  levels: z.array(z.object({
+    concurrency: z.number(), routes: z.array(z.object({
+      route: Route, stages: QwenStages,
+      firstSseTail: z.array(z.object({
+        percentile: z.enum(["p95", "p99"]), firstSse: z.number().nullable(), workerQueue: z.number().nullable(),
+        retrieval: z.number().nullable(), rerank: z.number().nullable(), qwenFirstContent: z.number().nullable(),
+        qwenStreamTail: z.number().nullable(),
+      })),
+    })),
+  })),
+  quality: z.array(z.object({
+    workspaceId: Workspace, meetingContextRegressions: z.number(), exactCitations: z.number(), citationCount: z.number(),
+    noClaimAnswers: z.number(), completedAnswers: z.number(),
+    pairedSynthesis: z.number(), allCitedMeetingsAfter: z.number(),
+    semanticClaims: z.number().optional(), supportedClaims: z.number().optional(),
+  })),
+});
+const QwenComparison = z.object({
+  shared: QwenRun, split: QwenRun,
+  contextComparisons: z.array(z.object({ workspaceId: Workspace, requests: z.number() })),
+});
+const Phase6 = MixedLoad.extend({ split: MixedLoad, qwenReplay: QwenComparison });
 const number = (value: number) => value.toLocaleString("ko-KR");
 const ratio = (actual: number, total: number) => `${number(actual)} / ${number(total)}건`;
 const percent = (value: number) => `${(100 * value).toFixed(1)}%`;
@@ -200,6 +228,7 @@ function MixedLoadReport({ report }: { readonly report: z.infer<typeof Phase6> }
         })}
       </div>
       <p>HTTP 전송부터 비어 있지 않은 첫 답변과 완료 이벤트를 측정했습니다. 경로별 표본이 12·24건이므로 이 표의 p99는 관측 최댓값입니다. 예열은 제외했습니다.</p>
+      <QwenReplayReport comparison={report.qwenReplay} concurrency={level.concurrency} />
       <h2>근거 품질 회귀</h2>
       <div className={styles.corpora}>
         {after.quality.map((workspace) => {
@@ -222,6 +251,89 @@ function MixedLoadReport({ report }: { readonly report: z.infer<typeof Phase6> }
         })}
       </div>
       <p>분리 후 문서 찾기 {after.lookupRequests}건의 분류·생성 모델 호출은 각각 {after.lookupClassificationCalls}회와 {after.lookupGenerationCalls}회였습니다. <a href={`${repo}/tree/codex/hybrid-search-lookup-worker/experiments/hybrid-search`}>Worker 분리 코드와 재실행 방법</a></p>
+    </section>
+  );
+}
+
+const qwenRows = [
+  ["firstSse", "첫 SSE"], ["completedSse", "전체 완료"], ["workerQueue", "Worker 대기"],
+  ["retrieval", "검색 전체"], ["rerank", "리랭킹"], ["qwenFirstContent", "Qwen 첫 내용 대기"],
+  ["qwenStreamTail", "Qwen 이후 생성"],
+] as const;
+
+function QwenReplayReport({ comparison, concurrency }: {
+  readonly comparison: z.infer<typeof QwenComparison>;
+  readonly concurrency: number;
+}) {
+  const { shared, split } = comparison;
+  const find = (run: z.infer<typeof QwenRun>) => run.levels.find((level) => level.concurrency === concurrency)
+    ?.routes.find((route) => route.route === "MEETING_QUESTION");
+  const before = find(shared);
+  const after = find(split);
+  if (!before || !after) return null;
+
+  const time = (ms: number | null | undefined) => ms == null ? "—" : (ms / 1000).toFixed(3);
+  const pair = (left: number | null | undefined, right: number | null | undefined) => (
+    <>{time(left)} <span className={styles.comparisonArrow}>→</span> <strong>{time(right)}</strong></>
+  );
+
+  return (
+    <section className={`panel ${styles.metricCard} ${styles.qwenReport}`} aria-label="회의 내용 질문 지연 재실측">
+      <h2>회의 내용 질문 지연 재실측</h2>
+      <p>같은 질문을 두 Worker 설정으로 다시 실행했습니다. 동시 {concurrency}건 · 각 {after.stages.firstSse.samples}건 · 공용 → 분리, 단위 초</p>
+      <table className={styles.timingTable} aria-label="내용 질문 지연 구간별 비교">
+        <thead><tr><th scope="col">측정 구간</th><th scope="col">p95</th><th scope="col">p99</th></tr></thead>
+        <tbody>{qwenRows.map(([key, label]) => (
+          <tr key={key}>
+            <th scope="row">{label}</th>
+            <td>{pair(before.stages[key].p95, after.stages[key].p95)}</td>
+            <td>{pair(before.stages[key].p99, after.stages[key].p99)}</td>
+          </tr>
+        ))}</tbody>
+      </table>
+      <p>{concurrency === 3
+        ? <>동시 3건에서 가장 느린 요청끼리 비교하면 Qwen 첫 내용 대기가 {pair(before.firstSseTail[0]?.qwenFirstContent, after.firstSseTail[0]?.qwenFirstContent)}초로 늘었습니다. 해당 요청의 리랭킹과 Worker 대기는 줄었습니다.</>
+        : "동시 6건에서 기존에 관찰한 지연 증가는 재현되지 않았습니다. 이번 첫 SSE p95 요청에서 가장 긴 구간은 두 설정 모두 Worker 대기였습니다."}</p>
+      <p>리랭킹은 검색 전체에 포함됩니다. Qwen 첫 내용 대기에는 네트워크, 서버 대기, 입력 처리가 함께 들어갑니다. 이후 생성은 첫 모델 내용부터 Qwen 스트림 종료까지입니다.</p>
+      <details>
+        <summary>첫 SSE p95·p99에 해당하는 요청의 실제 구간</summary>
+        {after.firstSseTail.map((row) => {
+          const previous = before.firstSseTail.find((item) => item.percentile === row.percentile);
+          return (
+            <dl className={styles.metrics} key={row.percentile} aria-label={`첫 SSE ${row.percentile} 요청`}>
+              <dt>첫 SSE {row.percentile}</dt><dd>{pair(previous?.firstSse, row.firstSse)}</dd>
+              <dt>Worker 대기</dt><dd>{pair(previous?.workerQueue, row.workerQueue)}</dd>
+              <dt>검색 전체</dt><dd>{pair(previous?.retrieval, row.retrieval)}</dd>
+              <dt>Qwen 첫 내용 대기</dt><dd>{pair(previous?.qwenFirstContent, row.qwenFirstContent)}</dd>
+              <dt>Qwen 이후 생성</dt><dd>{pair(previous?.qwenStreamTail, row.qwenStreamTail)}</dd>
+            </dl>
+          );
+        })}
+      </details>
+      <h3>같은 재실행의 경로·근거 검증</h3>
+      <p>SSE 완료 {shared.completed}/{shared.requests} → {split.completed}/{split.requests}건 · 라우팅 일치 {shared.routeMatches} → {split.routeMatches}건</p>
+      <p>문서 찾기 {shared.lookupRequests} → {split.lookupRequests}건 · 생성 {shared.lookupGenerationCalls} → {split.lookupGenerationCalls}회 · 분류 {shared.lookupClassificationCalls} → {split.lookupClassificationCalls}회</p>
+      <div className={styles.corpora}>
+        {split.quality.map((row) => {
+          const previous = shared.quality.find((item) => item.workspaceId === row.workspaceId);
+          const samples = comparison.contextComparisons.find((item) => item.workspaceId === row.workspaceId)?.requests ?? 0;
+          if (!previous) return null;
+          return (
+            <section key={row.workspaceId}>
+              <h3>{corpus[row.workspaceId]}</h3>
+              <dl className={styles.metrics}>
+                <dt>분리 후 기대 회의가 줄어든 문맥</dt><dd>{ratio(row.meetingContextRegressions, samples)}</dd>
+                <dt>원문·저장 출처 일치 인용</dt><dd>{previous.exactCitations}/{previous.citationCount} → {row.exactCitations}/{row.citationCount}개</dd>
+                <dt>근거 부족 안내로 끝난 생성 답변</dt><dd>{previous.noClaimAnswers}/{previous.completedAnswers} → {row.noClaimAnswers}/{row.completedAnswers}건</dd>
+                <dt>기대 회의를 모두 인용한 종합</dt><dd>{previous.allCitedMeetingsAfter}/{previous.pairedSynthesis} → {row.allCitedMeetingsAfter}/{row.pairedSynthesis}건</dd>
+                {previous.semanticClaims !== undefined && row.semanticClaims !== undefined && <>
+                  <dt>인용이 전체를 지지한 주장</dt><dd>{previous.supportedClaims}/{previous.semanticClaims} → {row.supportedClaims}/{row.semanticClaims}개</dd>
+                </>}
+              </dl>
+            </section>
+          );
+        })}
+      </div>
     </section>
   );
 }

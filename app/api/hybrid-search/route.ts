@@ -9,6 +9,7 @@ import phase4 from "../../../data/hybrid-search-phase4.json";
 import phase5 from "../../../data/hybrid-search-phase5.json";
 import phase6 from "../../../data/hybrid-search-phase6.json";
 import phase6Split from "../../../data/hybrid-search-phase6-lookup-worker.json";
+import phase6QwenReplay from "../../../data/hybrid-search-phase6-qwen-replay.json";
 
 export const dynamic = "force-dynamic";
 const Kind = z.enum(["comparison", "lookup", "synthesis", "corpus", "dataset", "phase1", "phase2", "phase3", "phase4", "phase5", "phase6"]);
@@ -76,7 +77,8 @@ async function forward(req: Request) {
   }
   if (springReport) {
     if (req.method !== "GET") return Response.json({ error: "게시된 실험 결과는 조회만 지원합니다." }, { status: 405 });
-    return Response.json({ phase4, phase5, phase6: { ...phase6, split: phase6Split } }[target], { headers });
+    const phase6Report = { ...phase6, split: phase6Split, qwenReplay: phase6QwenReplay };
+    return Response.json({ phase4, phase5, phase6: phase6Report }[target], { headers });
   }
   if (artifact) {
     return req.method === "GET"
