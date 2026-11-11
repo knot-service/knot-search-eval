@@ -74,7 +74,8 @@ async function load(kind: Kind, method: "GET" | "POST", signal?: AbortSignal) {
 
 export function HybridSearchLab({ localAccess }: { readonly localAccess: boolean }) {
   const [tab, setTab] = useState<Tab>(localAccess ? "comparison" : "dataset");
-  const visibleTabs = tabs.filter(({ id }) => localAccess || id === "dataset" || id.startsWith("phase"));
+  const visibleTabs = tabs.filter(({ id }) =>
+    localAccess || id === "dataset" || id === "quality1" || id.startsWith("phase"));
   return (
     <section aria-label="하이브리드 검색 실험">
       <div className="heading">
