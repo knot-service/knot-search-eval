@@ -1,4 +1,33 @@
 {
+  "supportingDocuments": {
+    "variants": [
+      { "name": "기존 2,048토큰", "included": 378, "gained": 0, "lost": 0, "targetRecovered": 0 },
+      { "name": "남는 예산 · 구절당 96토큰", "included": 390, "gained": 12, "lost": 0, "targetRecovered": 11 },
+      { "name": "남는 예산 · 구절당 160토큰", "included": 401, "gained": 23, "lost": 0, "targetRecovered": 20 },
+      { "name": "남는 예산 · 구절당 220토큰", "included": 408, "gained": 30, "lost": 0, "targetRecovered": 27 },
+      { "name": "보조 예산 160 예약 · 구절당 160토큰", "included": 400, "gained": 23, "lost": 1, "targetRecovered": 20 },
+      { "name": "보조 예산 320 예약 · 구절당 220토큰", "included": 403, "gained": 30, "lost": 5, "targetRecovered": 27 },
+      { "name": "남는 예산 · 검색어 반영 · 내용 질문 포함", "included": 409, "gained": 31, "lost": 0, "targetRecovered": 28 }
+    ],
+    "meetings": [
+      { "workspace": 1, "coverage": { "before": { "matched": 135, "total": 140 }, "after": { "matched": 135, "total": 140 } } },
+      { "workspace": 458, "coverage": { "before": { "matched": 6, "total": 8 }, "after": { "matched": 6, "total": 8 } } }
+    ],
+    "live": [
+      {
+        "workspace": 1,
+        "expectedCited": { "before": { "matched": 1, "total": 17 }, "after": { "matched": 6, "total": 17 } },
+        "exactCitations": { "before": { "matched": 74, "total": 74 }, "after": { "matched": 87, "total": 87 } }
+      },
+      {
+        "workspace": 458,
+        "expectedCited": { "before": { "matched": 5, "total": 5 }, "after": { "matched": 5, "total": 5 } },
+        "exactCitations": { "before": { "matched": 11, "total": 11 }, "after": { "matched": 11, "total": 11 } }
+      }
+    ],
+    "summary": "검색 후보에 있었지만 같은 회의의 다른 문서가 대표로 선택돼 빠진 85구절을 확인했습니다. 대표 근거를 먼저 확보하고 2,048토큰 안에서 회의별로 보조 문서 한 개의 짧은 구절을 비교했습니다.",
+    "citationSummary": "Spring 260문항에서 409/526개를 재현했고 대표 구절은 모두 남았습니다. 남은 57개 중 49개는 해당 문서가 최종 문맥에 없었고 8개는 발췌 범위 밖이었습니다. 실제 Qwen은 설정마다 26문항을 완료했습니다. 160토큰 후보의 Workspace 1 기대 문서 전체 인용은 5/17건이었습니다. 220토큰 후보가 회복한 구절 중 생성 표본의 12개는 문서 인용 0/12 → 9/12, 구절 전체 인용 0/12 → 5/12였습니다. 문서 찾기의 생성·분류 호출은 각각 0회였습니다."
+  },
   "representative": {
     "variants": [
       { "name": "기존 대표 · 2,048토큰", "included": 378, "gained": 0, "lost": 0, "fullSlotRecovery": 0 },

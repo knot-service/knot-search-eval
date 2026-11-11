@@ -34,15 +34,21 @@ const SupplementReport = z.object({
   citationSummary: z.string(),
 });
 const RepresentativeReport = z.object({
-  variants: z.array(RecoveryTrial.extend({ fullSlotRecovery: z.number() })),
+  variants: z.array(RecoveryTrial.extend({ fullSlotRecovery: z.number() }).transform(
+    ({ fullSlotRecovery, ...variant }) => ({ ...variant, targetRecovered: fullSlotRecovery }),
+  )),
   meetings: z.array(z.object({ workspace: z.number(), coverage: CountComparison })),
   live: z.array(CitationComparison),
   summary: z.string(),
   citationSummary: z.string(),
 });
+const SupportingDocumentReport = RepresentativeReport.extend({
+  variants: z.array(RecoveryTrial.extend({ targetRecovered: z.number() })),
+});
 const Report = z.object({
   supplement: SupplementReport.optional(),
   representative: RepresentativeReport.optional(),
+  supportingDocuments: SupportingDocumentReport.optional(),
   evidenceStages: z.array(z.object({
     stage: z.number(), setting: z.string(), included: z.number(),
     gained: z.number().nullable(), lost: z.number().nullable(),
@@ -77,7 +83,7 @@ const trackedStages = [
 export function SearchQualityReport({ result }: { readonly result: unknown }) {
   const parsed = Report.safeParse(result);
   if (!parsed.success) return <p role="alert">정확도 1차 결과 형식을 확인해 주세요.</p>;
-  const { s18, evidenceStages, supplement, representative } = parsed.data;
+  const { s18, evidenceStages, supplement, representative, supportingDocuments } = parsed.data;
 
   return (
     <section className={styles.content} aria-label="정확도 1차 전후 비교">
@@ -88,9 +94,13 @@ export function SearchQualityReport({ result }: { readonly result: unknown }) {
           {evidenceStages && <li><a href="#evidence-stages-heading">기대 근거 구절 개선 · 0~5단계 결과</a></li>}
           {supplement && <li><a href="#supplement-heading">빈 문맥 슬롯 · 겹침 감점 실험</a></li>}
           {representative && <li><a href="#representative-heading">회의별 대표와 문맥 범위 실험</a></li>}
+          {supportingDocuments && <li><a href="#supporting-document-heading">같은 회의의 보조 근거 실험</a></li>}
         </ul>
       </div>
-      {representative && <RepresentativeComparison report={representative} />}
+      {supportingDocuments && <TargetedRecoveryComparison report={supportingDocuments} targetCount={85}
+        headingId="supporting-document-heading" title="같은 회의의 보조 근거 실험" />}
+      {representative && <TargetedRecoveryComparison report={representative} targetCount={62}
+        headingId="representative-heading" title="회의별 대표와 문맥 범위 실험" />}
       {supplement && <SupplementComparison report={supplement} />}
       <div className={styles.corpora}>
         {parsed.data.workspaces.map(({ workspaceId, before, after }) => (
@@ -173,23 +183,28 @@ export function SearchQualityReport({ result }: { readonly result: unknown }) {
   );
 }
 
-function RepresentativeComparison({ report }: { readonly report: z.infer<typeof RepresentativeReport> }) {
+function TargetedRecoveryComparison({ report, targetCount, headingId, title }: {
+  readonly report: z.infer<typeof SupportingDocumentReport>;
+  readonly targetCount: number;
+  readonly headingId: string;
+  readonly title: string;
+}) {
   return (
-    <section className={`panel ${styles.metricCard}`} aria-labelledby="representative-heading">
-      <h3 id="representative-heading" className={styles.evidenceHeading}>회의별 대표와 문맥 범위 실험</h3>
+    <section className={`panel ${styles.metricCard}`} aria-labelledby={headingId}>
+      <h3 id={headingId} className={styles.evidenceHeading}>{title}</h3>
       <p className={styles.runHeading}>{report.summary}</p>
-      <table className={`${styles.timingTable} ${styles.recoveryTable}`} aria-label="대표 선택과 문맥 범위 실험 결과">
+      <table className={`${styles.timingTable} ${styles.recoveryTable}`} aria-label={title}>
         <thead>
           <tr>
             <th scope="col">설정</th><th scope="col">포함</th><th scope="col">회복</th>
-            <th scope="col">누락</th><th scope="col">62개 중<br />회복</th>
+            <th scope="col">누락</th><th scope="col">{targetCount}개 중<br />회복</th>
           </tr>
         </thead>
         <tbody>
-          {report.variants.map(({ name, included, gained, lost, fullSlotRecovery }) => (
+          {report.variants.map(({ name, included, gained, lost, targetRecovered }) => (
             <tr key={name}>
               <th scope="row">{name}</th><td>{included}/526</td><td>{gained}</td>
-              <td>{lost}</td><td>{fullSlotRecovery}/62</td>
+              <td>{lost}</td><td>{targetRecovered}/{targetCount}</td>
             </tr>
           ))}
         </tbody>
