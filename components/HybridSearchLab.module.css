@@ -238,6 +238,23 @@
   text-align: left;
 }
 
+.evidenceHeading {
+  scroll-margin-top: 72px;
+}
+
+.evidenceTable :is(th, td):first-child,
+.evidenceTable th:nth-child(2) {
+  text-align: left;
+}
+
+.evidenceTable tbody th {
+  font-weight: 500;
+}
+
+.evidenceTable :is(th, td):not(:nth-child(2)) {
+  white-space: nowrap;
+}
+
 @media (max-width: 500px) {
   .timingTable { font-size: 12px; }
   .generationTable { table-layout: fixed; }

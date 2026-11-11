@@ -1,4 +1,50 @@
 {
+  "supplement": {
+    "misses": [
+      { "reason": "같은 회의의 다른 문서가 선택됨", "count": 91 },
+      { "reason": "같은 문서의 다른 청크가 선택됨", "count": 25 },
+      { "reason": "해당 회의가 선택에서 빠짐", "count": 6 }
+    ],
+    "variants": [
+      { "name": "기존 리랭킹 점수순", "included": 376, "gained": 0, "lost": 0 },
+      { "name": "겹침 감점 1점", "included": 378, "gained": 2, "lost": 0 },
+      { "name": "겹침 감점 2점", "included": 378, "gained": 3, "lost": 1 },
+      { "name": "겹침 감점 4점", "included": 377, "gained": 2, "lost": 1 },
+      { "name": "겹침 감점 2점 · 남는 슬롯 재사용", "included": 378, "gained": 3, "lost": 1 }
+    ],
+    "live": [
+      {
+        "workspace": 1,
+        "expectedCited": { "before": { "matched": 3, "total": 15 }, "after": { "matched": 5, "total": 15 } },
+        "exactCitations": { "before": { "matched": 66, "total": 66 }, "after": { "matched": 79, "total": 79 } }
+      },
+      {
+        "workspace": 458,
+        "expectedCited": { "before": { "matched": 5, "total": 5 }, "after": { "matched": 5, "total": 5 } },
+        "exactCitations": { "before": { "matched": 12, "total": 12 }, "after": { "matched": 15, "total": 15 } }
+      }
+    ],
+    "summary": "2,048토큰과 회의별 대표를 고정했습니다. 기존 문맥 선택에서 빠진 122구절 중 62개는 대표만으로 5개 슬롯이 찬 종합 질문, 53개는 보충 가능한 종합 질문, 7개는 내용 질문에 있었습니다.",
+    "citationSummary": "Spring 검색 260문항에서 감점 1점은 2구절을 회복했고 신규 누락은 없었습니다. 전후 Qwen 비교 24건씩에서 해당 문서는 회복한 두 질문 모두에 최종 인용됐고, 기대 구절 전체는 1건에 인용됐습니다. 재실행에서는 두 질문 중 1건만 해당 문서를 인용했습니다. 다른 1건은 Qwen이 인용에 원문에 없는 글자를 추가해 검증에서 탈락했습니다. 문서 찾기 4건의 생성·분류 호출은 각각 0회였습니다."
+  },
+  "evidenceStages": [
+    { "stage": 0, "setting": "기준선 재현", "included": 295, "gained": null, "lost": null },
+    { "stage": 1, "setting": "같은 회의의 두 번째 문서", "included": 302, "gained": 27, "lost": 20 },
+    { "stage": 1, "setting": "같은 문서의 다른 청크", "included": 295, "gained": 8, "lost": 8 },
+    { "stage": 1, "setting": "다른 문서·청크를 점수순으로 보충", "included": 305, "gained": 26, "lost": 16 },
+    { "stage": 2, "setting": "날짜 나열·이름의 월 오인 수정", "included": 316, "gained": 11, "lost": 0 },
+    { "stage": 3, "setting": "RRF 출력 30개", "included": 304, "gained": 5, "lost": 17 },
+    { "stage": 3, "setting": "RRF 후보 합집합 전체", "included": 301, "gained": 5, "lost": 20 },
+    { "stage": 4, "setting": "키워드 후보 30개", "included": 317, "gained": 1, "lost": 0 },
+    { "stage": 4, "setting": "키워드 후보 40개", "included": 319, "gained": 3, "lost": 0 },
+    { "stage": 4, "setting": "벡터 후보 30개", "included": 317, "gained": 2, "lost": 1 },
+    { "stage": 4, "setting": "벡터 후보 40개", "included": 309, "gained": 4, "lost": 11 },
+    { "stage": 5, "setting": "관련 문장 중심 발췌 · 1,024토큰", "included": 334, "gained": 22, "lost": 7 },
+    { "stage": 5, "setting": "관련도가 낮은 구절 상한 160토큰", "included": 333, "gained": 1, "lost": 2 },
+    { "stage": 5, "setting": "관련도가 낮은 구절 상한 해제", "included": 323, "gained": 2, "lost": 13 },
+    { "stage": 5, "setting": "전체 문맥 1,536토큰", "included": 373, "gained": 39, "lost": 0 },
+    { "stage": 5, "setting": "전체 문맥 2,048토큰", "included": 376, "gained": 42, "lost": 0 }
+  ],
   "workspaces": [
     {
       "workspaceId": 1,

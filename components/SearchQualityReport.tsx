@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { z } from "zod";
 import styles from "./HybridSearchLab.module.css";
 
@@ -20,7 +21,24 @@ const TrackedCase = z.object({
 });
 const TrackedPair = z.object({ before: TrackedCase, after: TrackedCase });
 const PassageTokens = z.object({ total: z.number(), offTopic: z.number() });
+const SupplementReport = z.object({
+  misses: z.array(z.object({ reason: z.string(), count: z.number() })),
+  variants: z.array(z.object({
+    name: z.string(), included: z.number(), gained: z.number(), lost: z.number(),
+  })),
+  live: z.array(z.object({
+    workspace: z.number(), expectedCited: z.object({ before: Count, after: Count }),
+    exactCitations: z.object({ before: Count, after: Count }),
+  })),
+  summary: z.string(),
+  citationSummary: z.string(),
+});
 const Report = z.object({
+  supplement: SupplementReport.optional(),
+  evidenceStages: z.array(z.object({
+    stage: z.number(), setting: z.string(), included: z.number(),
+    gained: z.number().nullable(), lost: z.number().nullable(),
+  })).optional(),
   workspaces: z.array(z.object({
     workspaceId: z.union([z.literal(1), z.literal(458)]),
     before: Stage,
@@ -51,14 +69,19 @@ const trackedStages = [
 export function SearchQualityReport({ result }: { readonly result: unknown }) {
   const parsed = Report.safeParse(result);
   if (!parsed.success) return <p role="alert">정확도 1차 결과 형식을 확인해 주세요.</p>;
-  const { s18 } = parsed.data;
+  const { s18, evidenceStages, supplement } = parsed.data;
 
   return (
     <section className={styles.content} aria-label="정확도 1차 전후 비교">
       <div>
         <h2>근거 구절과 인용 정확도</h2>
         <p>비슷한 리랭킹 점수에서는 본문을 우선하고, 검색된 청크에 먼저 토큰을 배분했습니다. 관련도 차이가 큰 후보에는 짧은 구절을 남겨 다른 회의의 근거도 확인할 수 있게 했습니다.</p>
+        <ul>
+          {evidenceStages && <li><a href="#evidence-stages-heading">기대 근거 구절 개선 · 0~5단계 결과</a></li>}
+          {supplement && <li><a href="#supplement-heading">빈 문맥 슬롯 · 겹침 감점 실험</a></li>}
+        </ul>
       </div>
+      {supplement && <SupplementComparison report={supplement} />}
       <div className={styles.corpora}>
         {parsed.data.workspaces.map(({ workspaceId, before, after }) => (
           <section className={`panel ${styles.metricCard}`} key={workspaceId}>
@@ -105,6 +128,78 @@ export function SearchQualityReport({ result }: { readonly result: unknown }) {
       </section>
       <p>Workspace 1은 기존 기대 구절 전체를, Workspace 458은 v1.30 기대 문서에 근거 구절을 표시한 고정 5문항을 사용했습니다. 주장에 대한 인용의 뒷받침 여부는 각 워크스페이스에서 실제 생성한 5개 답변을 검수했습니다.</p>
       <p>인용 복사 지시를 바꾼 후보는 Workspace 1의 개별 복사 오류를 줄였지만, 기대 문서를 모두 인용한 답변이 2/5건에서 1/5건으로 줄어 채택을 보류했습니다.</p>
+      {evidenceStages && (
+        <section className={`panel ${styles.metricCard}`} aria-labelledby="evidence-stages-heading">
+          <h3 id="evidence-stages-heading" className={styles.evidenceHeading}>기대 근거 구절 개선 · 0~5단계</h3>
+          <p className={styles.runHeading}>Spring 검색 260문항에서 Workspace 1은 295/526 → 376/526개, Workspace 458은 7/7 → 7/7개였습니다. Workspace 1의 기존 구절은 모두 남았고 81개가 추가됐습니다.</p>
+          <table className={`${styles.timingTable} ${styles.evidenceTable}`} aria-label="Workspace 1의 단계별 기대 근거 구절 포함 수">
+            <thead>
+              <tr>
+                <th scope="col">단계</th><th scope="col">실험 설정</th><th scope="col">포함</th>
+                <th scope="col">회복</th><th scope="col">누락</th>
+              </tr>
+            </thead>
+            <tbody>
+              {evidenceStages.map(({ stage, setting, included, gained, lost }) => (
+                <tr key={setting}>
+                  <td>{stage}</td><th scope="row">{setting}</th><td>{included}/526</td>
+                  <td>{gained ?? "—"}</td><td>{lost ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p>회복·누락은 각 실험의 비교 기준 대비 수치입니다. RRF 출력은 20개, 관련도가 낮은 구절의 상한은 96토큰으로 유지했습니다. 1,536에서 2,048토큰으로 늘리면 3구절이 추가됐습니다.</p>
+          <dl className={styles.metrics}>
+            <div className={styles.metricRow}><dt>기대 회의 전체 포함 · Workspace 1</dt><dd>131/140 → 135/140</dd></div>
+            <div className={styles.metricRow}><dt>기대 회의 전체 포함 · Workspace 458</dt><dd>6/8 → 6/8</dd></div>
+            <div className={styles.metricRow}><dt>기대 문서 전체 인용 · Workspace 1</dt><dd>2/5 → 2/5</dd></div>
+            <div className={styles.metricRow}><dt>기대 문서 전체 인용 · Workspace 458</dt><dd>5/5 → 5/5</dd></div>
+            <div className={styles.metricRow}><dt>문서 찾기 4건 생성·분류 호출</dt><dd>각 0회 → 0회</dd></div>
+          </dl>
+          <p>Workspace 458의 S18-01은 Qwen이 복사한 회의 시각 한 줄을 걷어낸 뒤 나머지를 원문과 대조하도록 수정했습니다. 실제 재실행에서 문서 #2158이 최종 답변에 남았습니다.</p>
+        </section>
+      )}
+    </section>
+  );
+}
+
+function SupplementComparison({ report }: { readonly report: z.infer<typeof SupplementReport> }) {
+  return (
+    <section className={`panel ${styles.metricCard}`} aria-labelledby="supplement-heading">
+      <h3 id="supplement-heading" className={styles.evidenceHeading}>빈 문맥 슬롯 · 겹침 감점 실험</h3>
+      <p className={styles.runHeading}>{report.summary}</p>
+      <dl className={styles.metrics}>
+        {report.misses.map(({ reason, count }) => (
+          <div key={reason} className={styles.metricRow}><dt>{reason}</dt><dd>{count}개</dd></div>
+        ))}
+      </dl>
+      <table className={styles.timingTable} aria-label="빈 슬롯 규칙별 근거 구절 비교">
+        <thead>
+          <tr><th scope="col">설정</th><th scope="col">포함</th><th scope="col">회복</th><th scope="col">누락</th></tr>
+        </thead>
+        <tbody>
+          {report.variants.map(({ name, included, gained, lost }) => (
+            <tr key={name}>
+              <th scope="row">{name}</th><td>{included}/526</td><td>{gained}</td><td>{lost}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <dl className={styles.metrics}>
+        {report.live.map(({ workspace, expectedCited, exactCitations }) => (
+          <Fragment key={workspace}>
+            <div className={styles.metricRow}>
+              <dt>Workspace {workspace} · 기대 문서 모두 인용</dt>
+              <dd>{compare(expectedCited.before, expectedCited.after)}</dd>
+            </div>
+            <div className={styles.metricRow}>
+              <dt>Workspace {workspace} · 원문과 일치한 인용</dt>
+              <dd>{compare(exactCitations.before, exactCitations.after)}</dd>
+            </div>
+          </Fragment>
+        ))}
+      </dl>
+      <p>{report.citationSummary}</p>
     </section>
   );
 }
