@@ -64,6 +64,11 @@ const MeetingEvidenceReport = z.object({
   live: z.array(BeforeAfterRow),
   notes: z.array(z.string()),
 });
+const ServingIndexReport = z.object({
+  summary: z.string(),
+  checks: z.array(z.object({ label: z.string(), result: z.string() })),
+  questions: z.array(z.object({ question: z.string(), route: z.string(), result: z.string() })),
+});
 const Report = z.object({
   supplement: SupplementReport.optional(),
   representative: RepresentativeReport.optional(),
@@ -76,6 +81,7 @@ const Report = z.object({
   tokenBudgets: TokenBudgetReport.optional(),
   meetingEvidence: MeetingEvidenceReport.optional(),
   topicStatusEvidence: MeetingEvidenceReport.optional(),
+  servingIndex: ServingIndexReport.optional(),
   evidenceStages: z.array(z.object({
     stage: z.number(), setting: z.string(), included: z.number(),
     gained: z.number().nullable(), lost: z.number().nullable(),
@@ -112,7 +118,7 @@ export function SearchQualityReport({ result }: { readonly result: unknown }) {
   if (!parsed.success) return <p role="alert">정확도 1차 결과 형식을 확인해 주세요.</p>;
   const {
     s18, evidenceStages, supplement, representative, supportingDocuments, supportingSelection,
-    protectedSupport, remainingEvidence, tokenBudgets, sameDocumentEvidence, discoveryEvidence, meetingEvidence, topicStatusEvidence,
+    protectedSupport, remainingEvidence, tokenBudgets, sameDocumentEvidence, discoveryEvidence, meetingEvidence, topicStatusEvidence, servingIndex,
   } = parsed.data;
 
   return (
@@ -121,6 +127,7 @@ export function SearchQualityReport({ result }: { readonly result: unknown }) {
         <h2>근거 구절과 인용 정확도</h2>
         <p>비슷한 리랭킹 점수에서는 본문을 우선하고, 검색된 청크에 먼저 토큰을 배분했습니다. 관련도 차이가 큰 후보에는 짧은 구절을 남겨 다른 회의의 근거도 확인할 수 있게 했습니다.</p>
         <ul>
+          {servingIndex && <li><a href="#serving-index-heading">서빙 준비 · 문서 색인과 Qwen 탐색</a></li>}
           {topicStatusEvidence && <li><a href="#topic-status-heading">4,096토큰 · 질문 대상과 상태, 회의 ID 묶기</a></li>}
           {meetingEvidence && <li><a href="#meeting-evidence-heading">4,096토큰 · 회의별 핵심 구절 우선 배정</a></li>}
           {discoveryEvidence && <li><a href="#discovery-evidence-heading">4,096토큰 · 검색 범위와 추가 후보 리랭킹</a></li>}
@@ -135,6 +142,23 @@ export function SearchQualityReport({ result }: { readonly result: unknown }) {
           {supportingSelection && <li><a href="#supporting-selection-heading">보조 문서 선택 개선</a></li>}
         </ul>
       </div>
+      {servingIndex && (
+        <section className={`panel ${styles.metricCard}`} aria-labelledby="serving-index-heading">
+          <h3 id="serving-index-heading" className={styles.evidenceHeading}>서빙 준비 · 문서 색인과 Qwen 탐색</h3>
+          <p>{servingIndex.summary}</p>
+          <dl className={styles.metrics}>
+            {servingIndex.checks.map(({ label, result }) => (
+              <div key={label} className={styles.metricRow}><dt>{label}</dt><dd>{result}</dd></div>
+            ))}
+          </dl>
+          <h4 className={styles.runHeading}>실제 Qwen 탐색 질문</h4>
+          <ul>
+            {servingIndex.questions.map(({ question, route, result }) => (
+              <li key={question}><strong>{question}</strong> · {route} · {result}</li>
+            ))}
+          </ul>
+        </section>
+      )}
       {topicStatusEvidence && (
         <section className={`panel ${styles.metricCard}`} aria-labelledby="topic-status-heading">
           <h3 id="topic-status-heading" className={styles.evidenceHeading}>4,096토큰 · 질문 대상과 상태, 회의 ID 묶기</h3>
