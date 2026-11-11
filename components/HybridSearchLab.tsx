@@ -5,6 +5,7 @@ import { z } from "zod";
 import styles from "./HybridSearchLab.module.css";
 import { Workspace1EvaluationDraft } from "./Workspace1EvaluationDraft";
 import { Workspace1Phase1 } from "./Workspace1Phase1";
+import { Workspace1SearchQuality } from "./Workspace1SearchQuality";
 
 const modes = [
   { id: "keyword", label: "키워드" },
@@ -18,9 +19,11 @@ const tabs = [
   { id: "corpus", label: "워크스페이스" },
   { id: "dataset", label: "평가셋 초안" },
   { id: "phase1", label: "1차 청킹 비교" },
+  { id: "phase2", label: "2차 하이브리드" },
+  { id: "phase3", label: "3차 리랭킹" },
 ] as const;
 type Tab = (typeof tabs)[number]["id"];
-type Kind = Exclude<Tab, "corpus" | "dataset" | "phase1">;
+type Kind = "comparison" | "lookup" | "synthesis";
 
 const Candidate = z.object({
   id: z.number(), title: z.string(), recordedAt: z.string(), score: z.number(),
@@ -66,7 +69,7 @@ async function load(kind: Kind, method: "GET" | "POST", signal?: AbortSignal) {
 
 export function HybridSearchLab({ localAccess }: { readonly localAccess: boolean }) {
   const [tab, setTab] = useState<Tab>(localAccess ? "comparison" : "dataset");
-  const visibleTabs = tabs.filter(({ id }) => localAccess || id === "dataset" || id === "phase1");
+  const visibleTabs = tabs.filter(({ id }) => localAccess || id === "dataset" || id.startsWith("phase"));
   return (
     <section aria-label="하이브리드 검색 실험">
       <div className="heading">
@@ -85,6 +88,7 @@ export function HybridSearchLab({ localAccess }: { readonly localAccess: boolean
       {tab === "corpus" && <CorpusPanel />}
       {tab === "dataset" && <Workspace1EvaluationDraft />}
       {tab === "phase1" && <Workspace1Phase1 />}
+      {(tab === "phase2" || tab === "phase3") && <Workspace1SearchQuality key={tab} stage={tab} />}
       {(tab === "comparison" || tab === "lookup" || tab === "synthesis") && <RunPanel key={tab} kind={tab} />}
     </section>
   );

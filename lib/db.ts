@@ -81,13 +81,13 @@ export async function mutateState(input: unknown): Promise<DataState> {
   }
 }
 
-export async function readWorkspace1Artifact(kind: "dataset" | "phase1"): Promise<unknown> {
+export async function readWorkspace1Artifact(kind: "dataset" | "phase1" | "phase2" | "phase3"): Promise<unknown> {
   const p = connection();
   const tables = await p.query<{ present: boolean }>(
     "SELECT to_regclass('public.eval_workspace1_artifacts') IS NOT NULL AS present",
   );
   if (!tables.rows[0]?.present) return null;
-  const column = kind === "dataset" ? "dataset" : "phase1";
+  const column = kind;
   const result = await p.query<{ artifact: unknown }>(
     `SELECT ${column} AS artifact FROM eval_workspace1_artifacts WHERE id=$1`,
     ["knot-workspace-1"],

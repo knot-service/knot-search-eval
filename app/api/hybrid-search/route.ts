@@ -7,12 +7,12 @@ import { readWorkspace1Artifact } from "../../../lib/db";
 import { toWorkspace1Dataset } from "../../../lib/workspace1-dataset";
 
 export const dynamic = "force-dynamic";
-const Kind = z.enum(["comparison", "lookup", "synthesis", "corpus", "dataset", "phase1"]);
+const Kind = z.enum(["comparison", "lookup", "synthesis", "corpus", "dataset", "phase1", "phase2", "phase3"]);
 const headers = { "Cache-Control": "no-store" };
 
-async function workspaceArtifact(kind: "dataset" | "phase1") {
+async function workspaceArtifact(kind: "dataset" | "phase1" | "phase2" | "phase3") {
   const dataset = kind === "dataset";
-  const missing = dataset ? "Workspace 1 평가셋 초안을 준비 중입니다." : "1차 청킹 비교 결과를 준비 중입니다.";
+  const missing = dataset ? "Workspace 1 평가셋 초안을 준비 중입니다." : "검색 품질 결과를 준비 중입니다.";
   try {
     if (process.env.VERCEL) {
       const artifact = await readWorkspace1Artifact(kind);
@@ -21,10 +21,15 @@ async function workspaceArtifact(kind: "dataset" | "phase1") {
         : Response.json(artifact, { headers });
     }
 
-    const override = dataset ? process.env.KNOT_WORKSPACE1_DATASET_FILE : process.env.KNOT_WORKSPACE1_PHASE1_FILE;
+    const override = {
+      dataset: process.env.KNOT_WORKSPACE1_DATASET_FILE,
+      phase1: process.env.KNOT_WORKSPACE1_PHASE1_FILE,
+      phase2: process.env.KNOT_WORKSPACE1_PHASE2_FILE,
+      phase3: process.env.KNOT_WORKSPACE1_PHASE3_FILE,
+    }[kind];
     const filename = override ?? resolve(
       process.cwd(), "..", "knot-search-hybrid-eval", "experiments", "hybrid-search",
-      ".local", dataset ? "workspace1-evaluation-draft.json" : "workspace1-phase1.json",
+      ".local", dataset ? "workspace1-evaluation-draft.json" : `workspace1-${kind}.json`,
     );
     const data = await readFile(filename, "utf8");
     if (dataset) {
@@ -53,7 +58,7 @@ async function forward(req: Request) {
     return Response.json({ error: "실험 유형을 선택해 주세요." }, { status: 400 });
   }
   const target = kind.data;
-  const artifact = target === "dataset" || target === "phase1";
+  const artifact = target === "dataset" || target === "phase1" || target === "phase2" || target === "phase3";
   if (
     (!local && !(process.env.VERCEL && artifact)) ||
     (req.method === "POST" && req.headers.get("origin") !== `http://${host}`)

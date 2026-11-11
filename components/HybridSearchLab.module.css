@@ -207,3 +207,5 @@
 @media (max-width: 480px) {
   .draftFilters { grid-template-columns: minmax(0, 1fr); }
 }
+
+.metricRow { display: contents; }
