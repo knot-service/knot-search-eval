@@ -1,6 +1,7 @@
 "use client";
 import { StageResult } from "./StageResult";
 import { HybridSearchLab } from "./HybridSearchLab";
+import { EvaluationCases, caseLabels } from "./EvaluationCases";
 import { Workspace1EvaluationDraft } from "./Workspace1EvaluationDraft";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -45,17 +46,7 @@ const nav: { id: Page; label: string; icon: typeof Search }[] = [
 ];
 const workspace1DatasetKey = "workspace1-published";
 const labels: Record<string, string> = {
-  answer: "문서 답변",
-  not_found: "확인 불가",
-  clarify: "되묻기",
-  deny: "접근 제한",
-  partial: "부분 결과",
-  recovery: "장애 복구",
-  conversation: "일반 대화",
-  unsupported: "지원 범위 밖",
-  correct: "적합",
-  incorrect: "부적합",
-  hold: "판단 보류",
+  ...caseLabels,
   completed: "완료",
   failed: "실패",
   timeout: "시간 초과",
@@ -140,12 +131,9 @@ export function Dashboard() {
     [state, setState] = useState<DataState | null>(null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
-    [selected, setSelected] = useState(""),
-    [search, setSearch] = useState(""),
     [datasetFilter, setDatasetFilter] = useState("auto"),
     [left, setLeft] = useState(""),
     [right, setRight] = useState(""),
-    [notes, setNotes] = useState(""),
     [showMenu, setShowMenu] = useState(false),
     [openRun, setOpenRun] = useState(""),
     [reviewCase, setReviewCase] = useState(""),
@@ -243,32 +231,14 @@ export function Dashboard() {
       ),
     [datasets],
   );
-  const activeDataset =
-    datasetFilter === "auto"
-      ? meetingDataset
-        ? `${meetingDataset.id}:${meetingDataset.version}`
-        : datasets.length
-          ? `${datasets[datasets.length - 1].id}:${datasets[datasets.length - 1].version}`
-          : ""
-      : datasetFilter;
-  const workspace1Selected = activeDataset === workspace1DatasetKey;
-  const filtered = allCases.filter(
-    (c) =>
-      (!activeDataset ||
-        `${c.datasetId}:${c.datasetVersion}` === activeDataset) &&
-      `${c.id} ${c.scenario} ${c.question} ${c.category} ${c.datasetName}`
-        .toLowerCase()
-        .includes(search.toLowerCase()),
-  );
+  const baselineKey = meetingDataset ? `${meetingDataset.id}:${meetingDataset.version}` : "";
+  const workspace1Selected = datasetFilter === workspace1DatasetKey;
+  const activeDataset = workspace1Selected ? workspace1DatasetKey : baselineKey;
   const selectedExperiment = experimentCases.find((c) => c.id === experimentCase);
   const runVersions = [...new Set(runs.map((run) => `${run.datasetId}:${run.datasetVersion}`))];
   const runRevisions = [...new Set(runs.filter(run => belongsToSpace(run, runSpace) && run.experiment).map(run => run.experiment?.promptVersion).filter((version): version is string => Boolean(version)))].sort();
   const visibleRuns = [...runs].reverse().filter((run) => belongsToSpace(run, runSpace) && (runRevision === "all" || run.experiment?.promptVersion === runRevision) && (runVersion === "all" || `${run.datasetId}:${run.datasetVersion}` === runVersion) && `${run.name} ${run.results.map((r) => r.caseId).join(" ")}`.toLowerCase().includes(runSearch.toLowerCase()));
   const activeRun = visibleRuns.find((run) => run.id === openRun) ?? visibleRuns[0];
-  const focus =
-    filtered.find(
-      (c) => `${c.datasetId}:${c.datasetVersion}:${c.id}` === selected,
-    ) ?? filtered[0];
   const compareRuns = [...runs].reverse().filter((run) => belongsToSpace(run, compareSpace)
     && (compareVersion === "all" || `${run.datasetId}:${run.datasetVersion}` === compareVersion)
     && (compareRevision === "all" || run.experiment?.promptVersion === compareRevision)
@@ -312,7 +282,6 @@ export function Dashboard() {
   const go = (p: Page) => {
     setPage(p);
     setShowMenu(false);
-    setSearch("");
   };
   return (
     <div className="shell">
@@ -560,188 +529,77 @@ export function Dashboard() {
                       />
                     </label>
                   </div>
-                  {!workspace1Selected && meetingDataset && (
-                    <section className="review-summary" aria-label="평가셋 검수 현황">
-                      <div className="review-summary-heading">
-                        <div>
-                          <h2>검수 현황</h2>
-                          <p>현재 평가셋 v{meetingDataset.version}의 사례별 최근 판정이에요.</p>
-                        </div>
-                        <span className="muted">전체 {reviewSummary.total}개 · 실행 가능 {readyCaseCount}개</span>
-                      </div>
-                      <div className="stats">
-                        <Stat label="적합" value={String(reviewSummary.correct)} sub="사례 구성 검수" />
-                        <Stat label="판단 보류" value={String(reviewSummary.hold)} sub="추가 확인 필요" />
-                        <Stat label="부적합" value={String(reviewSummary.incorrect)} sub="수정 필요" />
-                        <Stat label="미검수" value={String(reviewSummary.unreviewed)} sub="판정 전" />
-                      </div>
-                      <p className="review-summary-note">검수 판정에는 AI 검토와 이전 버전에서 이관한 결과가 포함돼요. 실행 가능 여부나 탐색 정답률과는 달라요.</p>
-                    </section>
-                  )}
-                  <div className="toolbar">
-                    {!workspace1Selected && <div className="search">
-                      <Search size={16} />
-                      <input
-                        placeholder="사례나 시나리오 검색"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                      />
-                    </div>}
+                  <div className="toolbar dataset-selector">
+                    <label htmlFor="dataset-choice">평가셋 선택</label>
                     <select
-                      aria-label="평가셋 선택"
+                      id="dataset-choice"
                       value={activeDataset}
                       onChange={(e) => setDatasetFilter(e.target.value)}
                     >
+                      {meetingDataset ? (
+                        <option value={baselineKey}>Workspace 458 · 합성 기준선 · v{meetingDataset.version}</option>
+                      ) : (
+                        <option value="">합성 평가셋 없음</option>
+                      )}
                       <option value={workspace1DatasetKey}>Workspace 1 · 운영 문서 평가셋</option>
-                      {displayDatasets.map((d) => (
-                        <option
-                          key={`${d.id}:${d.version}`}
-                          value={`${d.id}:${d.version}`}
-                        >
-                          {d.name} · v{d.version}
-                        </option>
-                      ))}
                     </select>
-                    {!workspace1Selected && <span className="muted">{filtered.length}개 사례</span>}
                   </div>
-                  {workspace1Selected ? <Workspace1EvaluationDraft /> : !displayDatasets.length ? (
+                  {workspace1Selected ? (
+                    <Workspace1EvaluationDraft />
+                  ) : meetingDataset ? (
+                    <EvaluationCases
+                      key={baselineKey}
+                      cases={meetingDataset.cases}
+                      name="Workspace 458 · 합성 기준선"
+                      version={meetingDataset.version}
+                      source="합성 문서"
+                      status={meetingDataset.locked ? "버전 잠금" : "편집 가능"}
+                      controls={meetingDataset.locked ? undefined : (
+                        <button
+                          className="outline"
+                          disabled={busy}
+                          onClick={() => action({
+                            type: "lock_dataset",
+                            id: meetingDataset.id,
+                            version: meetingDataset.version,
+                          })}
+                        >
+                          버전 잠그기
+                        </button>
+                      )}
+                      overview={
+                        <details className="panel evaluation-overview">
+                          <summary>검수 현황 · 실행 가능 {readyCaseCount} / {reviewSummary.total}개</summary>
+                          <div className="stats">
+                            <Stat label="적합" value={String(reviewSummary.correct)} sub="사례 구성 검수" />
+                            <Stat label="판단 보류" value={String(reviewSummary.hold)} sub="추가 확인 필요" />
+                            <Stat label="부적합" value={String(reviewSummary.incorrect)} sub="수정 필요" />
+                            <Stat label="미검수" value={String(reviewSummary.unreviewed)} sub="판정 전" />
+                          </div>
+                          <p className="review-summary-note">AI 검토와 이전 버전에서 이관한 판정을 포함해요. 실행 가능 여부와 탐색 정답률은 별도로 봐요.</p>
+                        </details>
+                      }
+                      review={{
+                        latest: caseReviews,
+                        history: reviews.filter((r) =>
+                          r.datasetId === meetingDataset.id && r.datasetVersion === meetingDataset.version && !r.runId
+                        ),
+                        busy,
+                        submit: (caseId, outcome, notes) => action({
+                          type: "review",
+                          datasetId: meetingDataset.id,
+                          datasetVersion: meetingDataset.version,
+                          caseId,
+                          outcome,
+                          notes,
+                        }),
+                      }}
+                    />
+                  ) : (
                     <div className="panel empty">
                       등록된 평가셋이 없어요.
-                      <button
-                        className="primary"
-                        onClick={seed}
-                        disabled={busy}
-                      >
-                        합성 예시 추가하기
-                      </button>
+                      <button className="primary" onClick={seed} disabled={busy}>합성 예시 추가하기</button>
                     </div>
-                  ) : (
-                    <>
-                      <div className="dataset-bar">
-                        {displayDatasets.map((d) => (
-                          <div key={d.id + d.version}>
-                            <strong>{d.name}</strong>
-                            <span className="badge">v{d.version}</span>
-                            <span className="muted">
-                              합성 · {d.cases.length}개
-                            </span>
-                            {d.locked ? (
-                              <span className="badge neutral">버전 잠금</span>
-                            ) : (
-                              <button
-                                className="outline"
-                                onClick={() =>
-                                  action({
-                                    type: "lock_dataset",
-                                    id: d.id,
-                                    version: d.version,
-                                  })
-                                }
-                                disabled={busy}
-                              >
-                                버전 잠그기
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                      <div className="case-layout">
-                        <section className="panel case-list">
-                          <div className="panel-head">
-                            <div>
-                              <h2>평가 사례</h2>
-                              <p>사례를 선택해 기대 동작을 확인하세요.</p>
-                            </div>
-                          </div>
-                          {displayDatasets.flatMap((dataset) => {
-                            const items = filtered.filter(
-                              (c) =>
-                                c.datasetId === dataset.id &&
-                                c.datasetVersion === dataset.version,
-                            );
-                            return [
-                              ...new Set(items.map((c) => c.scenario)),
-                            ].map((scenario) => {
-                              const cases = items.filter(
-                                (c) => c.scenario === scenario,
-                              );
-                              return (
-                                <details
-                                  className="case-group scenario-group"
-                                  key={`${dataset.id}:${dataset.version}:${scenario}`}
-                                >
-                                  <summary>
-                                    <span className="case-id">{scenario}</span>
-                                    <strong>{cases[0]?.question}</strong>
-                                    <span>{cases.length}개</span>
-                                  </summary>
-                                  <div className="group-meta">
-                                    {dataset.name} · {cases[0]?.category}
-                                  </div>
-                                  {cases.map((c) => {
-                                    const key = `${c.datasetId}:${c.datasetVersion}:${c.id}`;
-                                    const review = latestCaseReviews({id:c.datasetId,version:c.datasetVersion}, reviews).get(c.id);
-                                    return (
-                                      <button
-                                        key={key}
-                                        onClick={() => setSelected(key)}
-                                        className={`case-row ${focus?.datasetId === c.datasetId && focus?.datasetVersion === c.datasetVersion && focus?.id === c.id ? "selected" : ""}`}
-                                      >
-                                        <span className="case-id">{c.id}</span>
-                                        <span className="row-main">
-                                          <strong>{c.question}</strong>
-                                          <small>
-                                            {c.variant || c.category} ·{" "}
-                                            {labels[c.expectedType]}
-                                          </small>
-                                        </span>
-                                        <span
-                                          className={`badge ${review ? "" : "neutral"}`}
-                                        >
-                                          {review
-                                            ? labels[review.outcome]
-                                            : "미검수"}
-                                        </span>
-                                      </button>
-                                    );
-                                  })}
-                                </details>
-                              );
-                            });
-                          })}
-                          {!filtered.length && (
-                            <div className="empty">검색 결과가 없어요.</div>
-                          )}
-                        </section>
-                        {focus && (
-                          <CaseDetail
-                            item={focus}
-                            reviews={reviews.filter(
-                              (r) =>
-                                r.datasetId === focus.datasetId &&
-                                r.datasetVersion === focus.datasetVersion &&
-                                r.caseId === focus.id,
-                            )}
-                            notes={notes}
-                            setNotes={setNotes}
-                            busy={busy}
-                            onReview={async (outcome) => {
-                              if (
-                                await action({
-                                  type: "review",
-                                  datasetId: focus.datasetId,
-                                  datasetVersion: focus.datasetVersion,
-                                  caseId: focus.id,
-                                  outcome,
-                                  notes,
-                                })
-                              )
-                                setNotes("");
-                            }}
-                          />
-                        )}
-                      </div>
-                    </>
                   )}
                 </>
               )}
@@ -1059,122 +917,6 @@ function Stat({
     </div>
   );
 }
-function CaseDetail({
-  item,
-  reviews,
-  notes,
-  setNotes,
-  busy,
-  onReview,
-}: {
-  item: EvalCase & { datasetId: string; datasetVersion: string };
-  reviews: DataState["reviews"];
-  notes: string;
-  setNotes: (v: string) => void;
-  busy: boolean;
-  onReview: (v: "correct" | "incorrect" | "hold") => void;
-}) {
-  return (
-    <section className="panel detail">
-      <div className="panel-head">
-        <div>
-          <div className="case-id">
-            {item.id} · {item.scenario}
-          </div>
-          <h2>사례 상세</h2>
-        </div>
-        <span className="badge">{labels[item.expectedType]}</span>
-      </div>
-      <div className="detail-block">
-        <label>질문</label>
-        <p className="question">{item.question}</p>
-      </div>
-      {item.setup && (
-        <div className="detail-block">
-          <label>상황과 전제 · {item.variant}</label>
-          <p>{item.setup}</p>
-        </div>
-      )}
-      {item.history.length > 0 && (
-        <div className="detail-block">
-          <label>이전 대화</label>
-          {item.history.map((h, i) => (
-            <p key={i} className="history">
-              <span>{h.role === "user" ? "사용자" : "답변"}</span> {h.content}
-            </p>
-          ))}
-        </div>
-      )}
-      <div className="detail-block">
-        <label>기대 동작</label>
-        <p>{item.expectedBehavior}</p>
-      </div>
-      <div className="detail-block">
-        <label>참고 문서 · {item.documents.length}</label>
-        {item.documents.length ? (
-          item.documents.map((d) => (
-            <div className="document" key={d.id}>
-              <strong>{d.title}</strong>
-              <small>{d.id}{d.id.includes("-extra-") ? " · 관련 없는 문서" : ""}{d.fixtureStatus ? (d.fixtureStatus === "automatic_pass" ? " · 생성 모델의 자동 검토 통과, 사람 검수 전" : " · 내용 검수 필요") : ""}</small>
-              {d.summary && <small>요약: {d.summary}</small>}
-              {d.fixtureSource && <small>합성 원문 기준: {d.fixtureSource}</small>}
-              {d.fixtureReason && <small>자동 검토: {d.fixtureReason}</small>}
-              <small>
-                {d.workspaceId && `Workspace: ${d.workspaceId} · `}
-                {d.accessible === false ? "접근 불가" : "접근 가능"}
-                {d.meetingStartedAt && ` · 회의 시작: ${d.meetingStartedAt}`}
-                {d.createdAt && ` · 생성: ${d.createdAt}`}
-              </small>
-              <p>{d.content}</p>
-            </div>
-          ))
-        ) : (
-          <p className="muted">연결된 근거 후보가 없어요. 워크스페이스의 다른 문서도 확인해야 해요.</p>
-        )}
-        <p className="muted evidence">
-          {latestCaseReviews({id:item.datasetId,version:item.datasetVersion}, reviews).get(item.id)?.outcome === "correct" ? "검수된 기대 근거" : "기대 근거 후보 (검수 필요)"}: {item.expectedEvidenceIds.join(", ") || "없음 — 사례 조건 확인 필요"}
-        </p>
-      </div>
-      <div className="detail-block">
-        <label htmlFor="notes">사람 검수</label>
-        <textarea
-          id="notes"
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          placeholder="판단 근거를 기록해 주세요 (합성 내용만)"
-        />
-        <div className="review-actions">
-          <button
-            className="outline"
-            disabled={busy}
-            onClick={() => onReview("correct")}
-          >
-            적합
-          </button>
-          <button
-            className="outline"
-            disabled={busy}
-            onClick={() => onReview("incorrect")}
-          >
-            부적합
-          </button>
-          <button
-            className="outline"
-            disabled={busy}
-            onClick={() => onReview("hold")}
-          >
-            판단 보류
-          </button>
-        </div>
-        <p className="muted">
-          {reviews.length
-            ? `검수 이력 ${reviews.length}건 · 최근 ${labels[reviews.at(-1)!.outcome]}`
-            : "아직 검수하지 않았어요."}
-        </p>
-      </div>
-    </section>
-  );
-}
 function Comparison({
   a,
   b,
@@ -1246,7 +988,7 @@ function Result({ result, candidateAvailable, experimentKind }: { result: Run["r
       ) : (
         <>
           <span
-            className={`badge ${result.status === "completed" ? "" : "warning"}`}
+            className={`badge ${result.status === "completed" ? "" : result.status === "hold" || result.status === "not_run" ? "neutral" : "warning"}`}
           >
             {labels[result.status]}
           </span>
