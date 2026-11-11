@@ -1,0 +1,761 @@
+{
+  "shared": {
+    "warmupRequests": 6,
+    "wavesPerLevel": 12,
+    "workerConcurrency": 2,
+    "lookupConcurrency": 1,
+    "streamConcurrency": 8,
+    "pollIntervalMs": 100,
+    "requests": 108,
+    "completed": 108,
+    "routeMatches": 108,
+    "lookupRequests": 36,
+    "lookupGenerationCalls": 0,
+    "lookupClassificationCalls": 0,
+    "quality": [
+      {
+        "workspaceId": 1,
+        "completedAnswers": 36,
+        "exactCitations": 146,
+        "citationCount": 146,
+        "claims": 82,
+        "uncitedClaims": 0,
+        "noClaimAnswers": 3,
+        "pairedSynthesis": 3,
+        "allCitedMeetingsAfter": 2,
+        "meetingContextRegressions": 0,
+        "generated": 36,
+        "allExpectedMeetingsCited": 26,
+        "missingCases": [
+          {
+            "caseId": "W1-0001-01",
+            "requests": 3
+          },
+          {
+            "caseId": "W1-0326-01",
+            "requests": 1
+          },
+          {
+            "caseId": "W1-0334-01",
+            "requests": 6
+          }
+        ],
+        "trackedCase": {
+          "requests": 0,
+          "allExpectedDocumentsInContext": 0,
+          "allExpectedDocumentsCited": 0,
+          "noCitations": 0
+        }
+      },
+      {
+        "workspaceId": 458,
+        "completedAnswers": 36,
+        "exactCitations": 50,
+        "citationCount": 50,
+        "claims": 37,
+        "uncitedClaims": 0,
+        "noClaimAnswers": 5,
+        "pairedSynthesis": 3,
+        "allCitedMeetingsAfter": 2,
+        "meetingContextRegressions": 0,
+        "generated": 36,
+        "allExpectedMeetingsCited": 31,
+        "missingCases": [
+          {
+            "caseId": "S18-01",
+            "requests": 5
+          }
+        ],
+        "trackedCase": {
+          "requests": 6,
+          "allExpectedDocumentsInContext": 6,
+          "allExpectedDocumentsCited": 1,
+          "noCitations": 5
+        }
+      }
+    ],
+    "levels": [
+      {
+        "concurrency": 3,
+        "routes": [
+          {
+            "route": "DOCUMENT_FIND",
+            "stages": {
+              "workerQueue": {
+                "samples": 12,
+                "p95": 103,
+                "p99": 103
+              },
+              "retrieval": {
+                "samples": 12,
+                "p95": 100,
+                "p99": 100
+              },
+              "rerank": {
+                "samples": 12,
+                "p95": 0.0,
+                "p99": 0.0
+              },
+              "qwenFirstContent": {
+                "samples": 0,
+                "p95": null,
+                "p99": null
+              },
+              "qwenStreamTail": {
+                "samples": 0,
+                "p95": null,
+                "p99": null
+              },
+              "firstSse": {
+                "samples": 12,
+                "p95": 268.81,
+                "p99": 268.81
+              },
+              "completedSse": {
+                "samples": 12,
+                "p95": 269.05,
+                "p99": 269.05
+              }
+            },
+            "firstSseTail": []
+          },
+          {
+            "route": "MEETING_QUESTION",
+            "stages": {
+              "workerQueue": {
+                "samples": 12,
+                "p95": 103,
+                "p99": 103
+              },
+              "retrieval": {
+                "samples": 12,
+                "p95": 781,
+                "p99": 781
+              },
+              "rerank": {
+                "samples": 12,
+                "p95": 719.56,
+                "p99": 719.56
+              },
+              "qwenFirstContent": {
+                "samples": 12,
+                "p95": 2457,
+                "p99": 2457
+              },
+              "qwenStreamTail": {
+                "samples": 12,
+                "p95": 2216,
+                "p99": 2216
+              },
+              "firstSse": {
+                "samples": 12,
+                "p95": 4786.09,
+                "p99": 4786.09
+              },
+              "completedSse": {
+                "samples": 12,
+                "p95": 4786.46,
+                "p99": 4786.46
+              }
+            },
+            "firstSseTail": [
+              {
+                "percentile": "p95",
+                "workerQueue": 100,
+                "retrieval": 525,
+                "rerank": 485.13,
+                "qwenFirstContent": 1811,
+                "qwenStreamTail": 2216,
+                "firstSse": 4786.09,
+                "completedSse": 4786.46
+              },
+              {
+                "percentile": "p99",
+                "workerQueue": 100,
+                "retrieval": 525,
+                "rerank": 485.13,
+                "qwenFirstContent": 1811,
+                "qwenStreamTail": 2216,
+                "firstSse": 4786.09,
+                "completedSse": 4786.46
+              }
+            ]
+          },
+          {
+            "route": "MULTI_MEETING_SYNTHESIS",
+            "stages": {
+              "workerQueue": {
+                "samples": 12,
+                "p95": 117,
+                "p99": 117
+              },
+              "retrieval": {
+                "samples": 12,
+                "p95": 1036,
+                "p99": 1036
+              },
+              "rerank": {
+                "samples": 12,
+                "p95": 949.27,
+                "p99": 949.27
+              },
+              "qwenFirstContent": {
+                "samples": 12,
+                "p95": 4331,
+                "p99": 4331
+              },
+              "qwenStreamTail": {
+                "samples": 12,
+                "p95": 4828,
+                "p99": 4828
+              },
+              "firstSse": {
+                "samples": 12,
+                "p95": 7741.27,
+                "p99": 7741.27
+              },
+              "completedSse": {
+                "samples": 12,
+                "p95": 7741.48,
+                "p99": 7741.48
+              }
+            },
+            "firstSseTail": []
+          }
+        ]
+      },
+      {
+        "concurrency": 6,
+        "routes": [
+          {
+            "route": "DOCUMENT_FIND",
+            "stages": {
+              "workerQueue": {
+                "samples": 24,
+                "p95": 208,
+                "p99": 224
+              },
+              "retrieval": {
+                "samples": 24,
+                "p95": 76,
+                "p99": 77
+              },
+              "rerank": {
+                "samples": 24,
+                "p95": 0.0,
+                "p99": 0.0
+              },
+              "qwenFirstContent": {
+                "samples": 0,
+                "p95": null,
+                "p99": null
+              },
+              "qwenStreamTail": {
+                "samples": 0,
+                "p95": null,
+                "p99": null
+              },
+              "firstSse": {
+                "samples": 24,
+                "p95": 354.42,
+                "p99": 356.77
+              },
+              "completedSse": {
+                "samples": 24,
+                "p95": 354.57,
+                "p99": 356.83
+              }
+            },
+            "firstSseTail": []
+          },
+          {
+            "route": "MEETING_QUESTION",
+            "stages": {
+              "workerQueue": {
+                "samples": 24,
+                "p95": 5257,
+                "p99": 5301
+              },
+              "retrieval": {
+                "samples": 24,
+                "p95": 799,
+                "p99": 820
+              },
+              "rerank": {
+                "samples": 24,
+                "p95": 739.49,
+                "p99": 767.02
+              },
+              "qwenFirstContent": {
+                "samples": 24,
+                "p95": 2120,
+                "p99": 3003
+              },
+              "qwenStreamTail": {
+                "samples": 24,
+                "p95": 2076,
+                "p99": 2154
+              },
+              "firstSse": {
+                "samples": 24,
+                "p95": 8974.9,
+                "p99": 9085.34
+              },
+              "completedSse": {
+                "samples": 24,
+                "p95": 8975.14,
+                "p99": 9085.46
+              }
+            },
+            "firstSseTail": [
+              {
+                "percentile": "p95",
+                "workerQueue": 5006,
+                "retrieval": 684,
+                "rerank": 639.03,
+                "qwenFirstContent": 1107,
+                "qwenStreamTail": 2076,
+                "firstSse": 8974.9,
+                "completedSse": 8975.14
+              },
+              {
+                "percentile": "p99",
+                "workerQueue": 5007,
+                "retrieval": 536,
+                "rerank": 490.64,
+                "qwenFirstContent": 1231,
+                "qwenStreamTail": 2154,
+                "firstSse": 9085.34,
+                "completedSse": 9085.46
+              }
+            ]
+          },
+          {
+            "route": "MULTI_MEETING_SYNTHESIS",
+            "stages": {
+              "workerQueue": {
+                "samples": 24,
+                "p95": 3668,
+                "p99": 3844
+              },
+              "retrieval": {
+                "samples": 24,
+                "p95": 899,
+                "p99": 905
+              },
+              "rerank": {
+                "samples": 24,
+                "p95": 816.4,
+                "p99": 855.89
+              },
+              "qwenFirstContent": {
+                "samples": 24,
+                "p95": 1805,
+                "p99": 2054
+              },
+              "qwenStreamTail": {
+                "samples": 24,
+                "p95": 3922,
+                "p99": 4193
+              },
+              "firstSse": {
+                "samples": 24,
+                "p95": 8099.92,
+                "p99": 8246.13
+              },
+              "completedSse": {
+                "samples": 24,
+                "p95": 8100.02,
+                "p99": 8246.15
+              }
+            },
+            "firstSseTail": []
+          }
+        ]
+      }
+    ],
+    "workerMatches": 108
+  },
+  "split": {
+    "warmupRequests": 6,
+    "wavesPerLevel": 12,
+    "workerConcurrency": 2,
+    "lookupConcurrency": 1,
+    "streamConcurrency": 8,
+    "pollIntervalMs": 100,
+    "requests": 108,
+    "completed": 108,
+    "routeMatches": 108,
+    "lookupRequests": 36,
+    "lookupGenerationCalls": 0,
+    "lookupClassificationCalls": 0,
+    "quality": [
+      {
+        "workspaceId": 1,
+        "completedAnswers": 36,
+        "exactCitations": 167,
+        "citationCount": 167,
+        "claims": 91,
+        "uncitedClaims": 0,
+        "noClaimAnswers": 1,
+        "pairedSynthesis": 3,
+        "allCitedMeetingsAfter": 2,
+        "meetingContextRegressions": 0,
+        "generated": 36,
+        "allExpectedMeetingsCited": 33,
+        "missingCases": [
+          {
+            "caseId": "W1-0001-01",
+            "requests": 1
+          },
+          {
+            "caseId": "W1-0322-01",
+            "requests": 1
+          },
+          {
+            "caseId": "W1-0334-01",
+            "requests": 1
+          }
+        ],
+        "trackedCase": {
+          "requests": 0,
+          "allExpectedDocumentsInContext": 0,
+          "allExpectedDocumentsCited": 0,
+          "noCitations": 0
+        }
+      },
+      {
+        "workspaceId": 458,
+        "completedAnswers": 36,
+        "exactCitations": 62,
+        "citationCount": 62,
+        "claims": 54,
+        "uncitedClaims": 0,
+        "noClaimAnswers": 0,
+        "pairedSynthesis": 3,
+        "allCitedMeetingsAfter": 3,
+        "meetingContextRegressions": 0,
+        "generated": 36,
+        "allExpectedMeetingsCited": 36,
+        "missingCases": [],
+        "trackedCase": {
+          "requests": 6,
+          "allExpectedDocumentsInContext": 6,
+          "allExpectedDocumentsCited": 6,
+          "noCitations": 0
+        }
+      }
+    ],
+    "levels": [
+      {
+        "concurrency": 3,
+        "routes": [
+          {
+            "route": "DOCUMENT_FIND",
+            "stages": {
+              "workerQueue": {
+                "samples": 12,
+                "p95": 105,
+                "p99": 105
+              },
+              "retrieval": {
+                "samples": 12,
+                "p95": 209,
+                "p99": 209
+              },
+              "rerank": {
+                "samples": 12,
+                "p95": 0.0,
+                "p99": 0.0
+              },
+              "qwenFirstContent": {
+                "samples": 0,
+                "p95": null,
+                "p99": null
+              },
+              "qwenStreamTail": {
+                "samples": 0,
+                "p95": null,
+                "p99": null
+              },
+              "firstSse": {
+                "samples": 12,
+                "p95": 400.36,
+                "p99": 400.36
+              },
+              "completedSse": {
+                "samples": 12,
+                "p95": 400.38,
+                "p99": 400.38
+              }
+            },
+            "firstSseTail": []
+          },
+          {
+            "route": "MEETING_QUESTION",
+            "stages": {
+              "workerQueue": {
+                "samples": 12,
+                "p95": 104,
+                "p99": 104
+              },
+              "retrieval": {
+                "samples": 12,
+                "p95": 1373,
+                "p99": 1373
+              },
+              "rerank": {
+                "samples": 12,
+                "p95": 1200.41,
+                "p99": 1200.41
+              },
+              "qwenFirstContent": {
+                "samples": 12,
+                "p95": 3393,
+                "p99": 3393
+              },
+              "qwenStreamTail": {
+                "samples": 12,
+                "p95": 2924,
+                "p99": 2924
+              },
+              "firstSse": {
+                "samples": 12,
+                "p95": 6924.64,
+                "p99": 6924.64
+              },
+              "completedSse": {
+                "samples": 12,
+                "p95": 7031.91,
+                "p99": 7031.91
+              }
+            },
+            "firstSseTail": [
+              {
+                "percentile": "p95",
+                "workerQueue": 22,
+                "retrieval": 543,
+                "rerank": 494.4,
+                "qwenFirstContent": 3393,
+                "qwenStreamTail": 2924,
+                "firstSse": 6924.64,
+                "completedSse": 7031.91
+              },
+              {
+                "percentile": "p99",
+                "workerQueue": 22,
+                "retrieval": 543,
+                "rerank": 494.4,
+                "qwenFirstContent": 3393,
+                "qwenStreamTail": 2924,
+                "firstSse": 6924.64,
+                "completedSse": 7031.91
+              }
+            ]
+          },
+          {
+            "route": "MULTI_MEETING_SYNTHESIS",
+            "stages": {
+              "workerQueue": {
+                "samples": 12,
+                "p95": 97,
+                "p99": 97
+              },
+              "retrieval": {
+                "samples": 12,
+                "p95": 1189,
+                "p99": 1189
+              },
+              "rerank": {
+                "samples": 12,
+                "p95": 1035.63,
+                "p99": 1035.63
+              },
+              "qwenFirstContent": {
+                "samples": 12,
+                "p95": 4343,
+                "p99": 4343
+              },
+              "qwenStreamTail": {
+                "samples": 12,
+                "p95": 3433,
+                "p99": 3433
+              },
+              "firstSse": {
+                "samples": 12,
+                "p95": 8116.37,
+                "p99": 8116.37
+              },
+              "completedSse": {
+                "samples": 12,
+                "p95": 8116.49,
+                "p99": 8116.49
+              }
+            },
+            "firstSseTail": []
+          }
+        ]
+      },
+      {
+        "concurrency": 6,
+        "routes": [
+          {
+            "route": "DOCUMENT_FIND",
+            "stages": {
+              "workerQueue": {
+                "samples": 24,
+                "p95": 270,
+                "p99": 328
+              },
+              "retrieval": {
+                "samples": 24,
+                "p95": 78,
+                "p99": 173
+              },
+              "rerank": {
+                "samples": 24,
+                "p95": 0.0,
+                "p99": 0.0
+              },
+              "qwenFirstContent": {
+                "samples": 0,
+                "p95": null,
+                "p99": null
+              },
+              "qwenStreamTail": {
+                "samples": 0,
+                "p95": null,
+                "p99": null
+              },
+              "firstSse": {
+                "samples": 24,
+                "p95": 450.44,
+                "p99": 465.66
+              },
+              "completedSse": {
+                "samples": 24,
+                "p95": 450.63,
+                "p99": 465.93
+              }
+            },
+            "firstSseTail": []
+          },
+          {
+            "route": "MEETING_QUESTION",
+            "stages": {
+              "workerQueue": {
+                "samples": 24,
+                "p95": 4895,
+                "p99": 5164
+              },
+              "retrieval": {
+                "samples": 24,
+                "p95": 811,
+                "p99": 889
+              },
+              "rerank": {
+                "samples": 24,
+                "p95": 746.13,
+                "p99": 819.0
+              },
+              "qwenFirstContent": {
+                "samples": 24,
+                "p95": 1740,
+                "p99": 2284
+              },
+              "qwenStreamTail": {
+                "samples": 24,
+                "p95": 3073,
+                "p99": 3339
+              },
+              "firstSse": {
+                "samples": 24,
+                "p95": 7772.35,
+                "p99": 7972.77
+              },
+              "completedSse": {
+                "samples": 24,
+                "p95": 7772.66,
+                "p99": 8082.49
+              }
+            },
+            "firstSseTail": [
+              {
+                "percentile": "p95",
+                "workerQueue": 5164,
+                "retrieval": 269,
+                "rerank": 227.79,
+                "qwenFirstContent": 1647,
+                "qwenStreamTail": 618,
+                "firstSse": 7772.35,
+                "completedSse": 7772.66
+              },
+              {
+                "percentile": "p99",
+                "workerQueue": 2286,
+                "retrieval": 555,
+                "rerank": 507.34,
+                "qwenFirstContent": 1740,
+                "qwenStreamTail": 3339,
+                "firstSse": 7972.77,
+                "completedSse": 8082.49
+              }
+            ]
+          },
+          {
+            "route": "MULTI_MEETING_SYNTHESIS",
+            "stages": {
+              "workerQueue": {
+                "samples": 24,
+                "p95": 5988,
+                "p99": 6057
+              },
+              "retrieval": {
+                "samples": 24,
+                "p95": 991,
+                "p99": 1014
+              },
+              "rerank": {
+                "samples": 24,
+                "p95": 914.83,
+                "p99": 924.65
+              },
+              "qwenFirstContent": {
+                "samples": 24,
+                "p95": 1662,
+                "p99": 1831
+              },
+              "qwenStreamTail": {
+                "samples": 24,
+                "p95": 4197,
+                "p99": 4525
+              },
+              "firstSse": {
+                "samples": 24,
+                "p95": 10074.45,
+                "p99": 10514.3
+              },
+              "completedSse": {
+                "samples": 24,
+                "p95": 10074.59,
+                "p99": 10514.59
+              }
+            },
+            "firstSseTail": []
+          }
+        ]
+      }
+    ],
+    "workerMatches": 108
+  },
+  "contextComparisons": [
+    {
+      "workspaceId": 1,
+      "requests": 36
+    },
+    {
+      "workspaceId": 458,
+      "requests": 36
+    }
+  ]
+}

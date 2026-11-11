@@ -76,7 +76,19 @@ const QwenComparison = z.object({
   shared: QwenRun, split: QwenRun,
   contextComparisons: z.array(z.object({ workspaceId: Workspace, requests: z.number() })),
 });
-const Phase6 = MixedLoad.extend({ split: MixedLoad, qwenReplay: QwenComparison });
+const GenerationRun = QwenRun.extend({
+  workerMatches: z.number(),
+  quality: z.array(QwenRun.shape.quality.element.extend({
+    generated: z.number(), allExpectedMeetingsCited: z.number(),
+    missingCases: z.array(z.object({ caseId: z.string(), requests: z.number() })),
+    trackedCase: z.object({
+      requests: z.number(), allExpectedDocumentsInContext: z.number(),
+      allExpectedDocumentsCited: z.number(), noCitations: z.number(),
+    }),
+  })),
+});
+const GenerationComparison = QwenComparison.extend({ shared: GenerationRun, split: GenerationRun });
+const Phase6 = MixedLoad.extend({ split: MixedLoad, qwenReplay: QwenComparison, generationReplay: GenerationComparison });
 const number = (value: number) => value.toLocaleString("ko-KR");
 const ratio = (actual: number, total: number) => `${number(actual)} / ${number(total)}건`;
 const percent = (value: number) => `${(100 * value).toFixed(1)}%`;
@@ -228,6 +240,7 @@ function MixedLoadReport({ report }: { readonly report: z.infer<typeof Phase6> }
         })}
       </div>
       <p>HTTP 전송부터 비어 있지 않은 첫 답변과 완료 이벤트를 측정했습니다. 경로별 표본이 12·24건이므로 이 표의 p99는 관측 최댓값입니다. 예열은 제외했습니다.</p>
+      <GenerationSplitReport comparison={report.generationReplay} concurrency={level.concurrency} />
       <QwenReplayReport comparison={report.qwenReplay} concurrency={level.concurrency} />
       <h2>근거 품질 회귀</h2>
       <div className={styles.corpora}>
@@ -251,6 +264,68 @@ function MixedLoadReport({ report }: { readonly report: z.infer<typeof Phase6> }
         })}
       </div>
       <p>분리 후 문서 찾기 {after.lookupRequests}건의 분류·생성 모델 호출은 각각 {after.lookupClassificationCalls}회와 {after.lookupGenerationCalls}회였습니다. <a href={`${repo}/tree/codex/hybrid-search-lookup-worker/experiments/hybrid-search`}>Worker 분리 코드와 재실행 방법</a></p>
+    </section>
+  );
+}
+
+const workerRows = [["workerQueue", "Worker 대기"], ["firstSse", "첫 SSE"], ["completedSse", "전체 완료"]] as const;
+
+function GenerationSplitReport({ comparison, concurrency }: {
+  readonly comparison: z.infer<typeof GenerationComparison>;
+  readonly concurrency: number;
+}) {
+  const { shared, split } = comparison;
+  const before = shared.levels.find((level) => level.concurrency === concurrency);
+  const after = split.levels.find((level) => level.concurrency === concurrency);
+  const previous = shared.quality.find((row) => row.workspaceId === 458);
+  const quality = split.quality.find((row) => row.workspaceId === 458);
+  if (!before || !after || !previous || !quality) return null;
+
+  const time = (ms: number | null | undefined) => ms == null ? "—" : (ms / 1000).toFixed(3);
+  const pair = (left: number | null | undefined, right: number | null | undefined) => (
+    <>{time(left)} <span className={styles.comparisonArrow}>→</span> <strong>{time(right)}</strong></>
+  );
+  const coverage = previous.trackedCase;
+  const next = quality.trackedCase;
+  const contextChecks = comparison.contextComparisons.find((row) => row.workspaceId === 458)?.requests ?? 0;
+  const missingCases = (row: typeof quality) => row.missingCases.map(({ caseId, requests }) => `${caseId} ${requests}건`).join(" · ") || "없음";
+
+  return (
+    <section className={`panel ${styles.metricCard} ${styles.qwenReport}`} aria-label="생성 Worker 경로 분리 전후">
+      <h2>생성 Worker 경로 분리 전후</h2>
+      <p>생성 공용 슬롯 2개 → 내용 질문 1개 + 회의 종합 1개. 문서 찾기 슬롯 1개를 유지했습니다.</p>
+      <p>동시 {concurrency}건 · 공용 생성 → 경로별 생성, 단위 초</p>
+      <table className={styles.timingTable} aria-label="경로별 생성 Worker 지연 비교">
+        <thead><tr><th scope="col">측정 구간</th><th scope="col">p95</th><th scope="col">p99</th></tr></thead>
+        {after.routes.map((row) => {
+          const baseline = before.routes.find((item) => item.route === row.route);
+          return (
+            <tbody key={row.route}>
+              <tr><th scope="rowgroup" colSpan={3}>{routeLabels[row.route]} · 각 {row.stages.firstSse.samples}건</th></tr>
+              {workerRows.map(([key, label]) => (
+                <tr key={key}>
+                  <th scope="row">{label}</th>
+                  <td>{pair(baseline?.stages[key].p95, row.stages[key].p95)}</td>
+                  <td>{pair(baseline?.stages[key].p99, row.stages[key].p99)}</td>
+                </tr>
+              ))}
+            </tbody>
+          );
+        })}
+      </table>
+      <p>SSE 완료 {shared.completed}/{shared.requests} → {split.completed}/{split.requests}건 · 지정 슬롯 처리 {shared.workerMatches} → {split.workerMatches}건</p>
+      <p>문서 찾기 {shared.lookupRequests} → {split.lookupRequests}건 · 생성 {shared.lookupGenerationCalls} → {split.lookupGenerationCalls}회 · 분류 {shared.lookupClassificationCalls} → {split.lookupClassificationCalls}회</p>
+      <h3>Workspace 458 최종 인용</h3>
+      <dl className={`${styles.metrics} ${styles.comparisonMetrics}`}>
+        <dt>분리 후 기대 회의가 줄어든 문맥</dt><dd>{ratio(quality.meetingContextRegressions, contextChecks)}</dd>
+        <dt>기대 회의를 모두 인용한 생성 답변</dt><dd>{previous.allExpectedMeetingsCited}/{previous.generated} → {quality.allExpectedMeetingsCited}/{quality.generated}건</dd>
+        <dt>원문·저장 출처와 일치한 인용</dt><dd>{previous.exactCitations}/{previous.citationCount} → {quality.exactCitations}/{quality.citationCount}개</dd>
+        <dt>S18-01 · 기대 문서가 검색 문맥에 있음</dt><dd>{coverage.allExpectedDocumentsInContext}/{coverage.requests} → {next.allExpectedDocumentsInContext}/{next.requests}건</dd>
+        <dt>S18-01 · 기대 문서를 최종 인용</dt><dd>{coverage.allExpectedDocumentsCited}/{coverage.requests} → {next.allExpectedDocumentsCited}/{next.requests}건</dd>
+        <dt>S18-01 · 최종 인용 없음</dt><dd>{coverage.noCitations}/{coverage.requests} → {next.noCitations}/{next.requests}건</dd>
+      </dl>
+      <p>기대 회의 인용 누락 사례 {missingCases(previous)} → {missingCases(quality)}</p>
+      <p>S18-01은 앞선 실험에서 검색 문맥에 기대 문서가 있었지만 인용이 빠졌던 사례입니다. <a href={`${repo}/tree/codex/hybrid-search-lookup-worker/experiments/hybrid-search`}>생성 Worker 분리 코드와 재실행 방법</a></p>
     </section>
   );
 }
