@@ -1,0 +1,110 @@
+import { z } from "zod";
+import styles from "./HybridSearchLab.module.css";
+
+const Count = z.object({ matched: z.number(), total: z.number() });
+const Stage = z.object({
+  replayCases: z.number(),
+  spanCases: z.number(),
+  spans: Count,
+  allMeetingsInContext: Count,
+  allExpectedCited: Count,
+  exactCitations: Count,
+  supportedClaims: Count,
+  lookup: z.object({ requests: z.number(), generationCalls: z.number() }),
+});
+const TrackedCase = z.object({
+  requests: z.number(),
+  inContext: z.number(),
+  modelCited: z.number(),
+  verified: z.number(),
+});
+const TrackedPair = z.object({ before: TrackedCase, after: TrackedCase });
+const PassageTokens = z.object({ total: z.number(), offTopic: z.number() });
+const Report = z.object({
+  workspaces: z.array(z.object({
+    workspaceId: z.union([z.literal(1), z.literal(458)]),
+    before: Stage,
+    after: Stage,
+  })),
+  s18: z.object({
+    sequential: TrackedPair, sustained: TrackedPair,
+    passageTokens: z.object({ before: PassageTokens, after: PassageTokens }),
+  }),
+});
+const labels = { 1: "Workspace 1 · 운영 문서 평가셋 초안", 458: "Workspace 458 · v1.30" };
+const fraction = (matched: number, total: number) => `${matched}/${total}`;
+const compare = (before: z.infer<typeof Count>, after: z.infer<typeof Count>) =>
+  `${fraction(before.matched, before.total)} → ${fraction(after.matched, after.total)}`;
+const stages = [
+  ["spans", "기대 근거 구절 포함"],
+  ["allMeetingsInContext", "종합 문맥에 기대 회의 모두 포함"],
+  ["allExpectedCited", "답변에 기대 문서 모두 인용"],
+  ["exactCitations", "원문과 일치한 인용"],
+  ["supportedClaims", "인용이 전체를 뒷받침한 주장"],
+] as const;
+const trackedStages = [
+  ["inContext", "Qwen 문맥에 기대 문서 포함"],
+  ["modelCited", "Qwen이 기대 문서 인용"],
+  ["verified", "최종 답변에 기대 문서 인용"],
+] as const;
+
+export function SearchQualityReport({ result }: { readonly result: unknown }) {
+  const parsed = Report.safeParse(result);
+  if (!parsed.success) return <p role="alert">정확도 1차 결과 형식을 확인해 주세요.</p>;
+  const { s18 } = parsed.data;
+
+  return (
+    <section className={styles.content} aria-label="정확도 1차 전후 비교">
+      <div>
+        <h2>근거 구절과 인용 정확도</h2>
+        <p>비슷한 리랭킹 점수에서는 본문을 우선하고, 검색된 청크에 먼저 토큰을 배분했습니다. 관련도 차이가 큰 후보에는 짧은 구절을 남겨 다른 회의의 근거도 확인할 수 있게 했습니다.</p>
+      </div>
+      <div className={styles.corpora}>
+        {parsed.data.workspaces.map(({ workspaceId, before, after }) => (
+          <section className={`panel ${styles.metricCard}`} key={workspaceId}>
+            <h3>{labels[workspaceId]}</h3>
+            <p className={styles.runHeading}>검색 재생 {before.replayCases}건 · 구절 검증 {before.spanCases}문항 · 기존 → 개선</p>
+            <dl className={styles.metrics}>
+              {stages.map(([key, label]) => (
+                <div key={key} className={styles.metricRow}>
+                  <dt>{label}</dt><dd>{compare(before[key], after[key])}</dd>
+                </div>
+              ))}
+              <div className={styles.metricRow}>
+                <dt>문서 찾기 생성 LLM</dt>
+                <dd>{before.lookup.generationCalls}회 → {after.lookup.generationCalls}회<br />각 {after.lookup.requests}건</dd>
+              </div>
+            </dl>
+          </section>
+        ))}
+      </div>
+      <section className={`panel ${styles.metricCard}`}>
+        <h3>Workspace 458 · S18-01</h3>
+        <p className={styles.runHeading}>
+          배포·폴더 구조 두 문서가 차지한 토큰은 {s18.passageTokens.before.offTopic}/{s18.passageTokens.before.total}에서 {s18.passageTokens.after.offTopic}/{s18.passageTokens.after.total}로 줄었습니다.
+        </p>
+        <div className={styles.corpora}>
+          {([["sequential", "단독 요청"], ["sustained", "지속 부하"]] as const).map(([key, label]) => {
+            const { before, after } = s18[key];
+            return (
+              <section key={key}>
+                <h4 className={styles.runHeading}>{label}</h4>
+                <dl className={styles.metrics}>
+                  {trackedStages.map(([metric, title]) => (
+                    <div key={metric} className={styles.metricRow}>
+                      <dt>{title}</dt>
+                      <dd>{fraction(before[metric], before.requests)} → {fraction(after[metric], after.requests)}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </section>
+            );
+          })}
+        </div>
+        <p>이전 부하 실험에서 인용이 빠진 6건의 Qwen 원응답은 저장되지 않았습니다. 이번 재실행에서는 Qwen이 낸 인용과 최종 인용을 각각 확인했습니다.</p>
+      </section>
+      <p>Workspace 1은 기존 기대 구절 전체를, Workspace 458은 v1.30 기대 문서에 근거 구절을 표시한 고정 5문항을 사용했습니다. 주장에 대한 인용의 뒷받침 여부는 각 워크스페이스에서 실제 생성한 5개 답변을 검수했습니다.</p>
+      <p>인용 복사 지시를 바꾼 후보는 Workspace 1의 개별 복사 오류를 줄였지만, 기대 문서를 모두 인용한 답변이 2/5건에서 1/5건으로 줄어 채택을 보류했습니다.</p>
+    </section>
+  );
+}

@@ -13,9 +13,10 @@ import phase6QwenReplay from "../../../data/hybrid-search-phase6-qwen-replay.jso
 import phase6GenerationReplay from "../../../data/hybrid-search-phase6-generation-routes.json";
 import phase6AgingReplay from "../../../data/hybrid-search-phase6-synthesis-aging.json";
 import phase6SustainedReplay from "../../../data/hybrid-search-phase6-sustained.json";
+import quality1 from "../../../data/hybrid-search-quality1.json";
 
 export const dynamic = "force-dynamic";
-const Kind = z.enum(["comparison", "lookup", "synthesis", "corpus", "dataset", "phase1", "phase2", "phase3", "phase4", "phase5", "phase6"]);
+const Kind = z.enum(["comparison", "lookup", "synthesis", "corpus", "dataset", "phase1", "phase2", "phase3", "phase4", "phase5", "phase6", "quality1"]);
 const headers = { "Cache-Control": "no-store" };
 
 async function workspaceArtifact(kind: "dataset" | "phase1" | "phase2" | "phase3") {
@@ -66,7 +67,7 @@ async function forward(req: Request) {
     return Response.json({ error: "실험 유형을 선택해 주세요." }, { status: 400 });
   }
   const target = kind.data;
-  const springReport = target === "phase4" || target === "phase5" || target === "phase6";
+  const springReport = target === "phase4" || target === "phase5" || target === "phase6" || target === "quality1";
   const artifact = target === "dataset" || target === "phase1" || target === "phase2" || target === "phase3";
   if (
     (!local && !(process.env.VERCEL && (artifact || springReport))) ||
@@ -81,7 +82,7 @@ async function forward(req: Request) {
   if (springReport) {
     if (req.method !== "GET") return Response.json({ error: "게시된 실험 결과는 조회만 지원합니다." }, { status: 405 });
     const phase6Report = { ...phase6, split: phase6Split, qwenReplay: phase6QwenReplay, generationReplay: phase6GenerationReplay, agingReplay: phase6AgingReplay, sustainedReplay: phase6SustainedReplay };
-    return Response.json({ phase4, phase5, phase6: phase6Report }[target], { headers });
+    return Response.json({ phase4, phase5, phase6: phase6Report, quality1 }[target], { headers });
   }
   if (artifact) {
     return req.method === "GET"

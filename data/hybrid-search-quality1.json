@@ -1,0 +1,162 @@
+{
+  "workspaces": [
+    {
+      "workspaceId": 1,
+      "before": {
+        "replayCases": 205,
+        "spanCases": 170,
+        "spans": {
+          "matched": 267,
+          "total": 526
+        },
+        "allMeetingsInContext": {
+          "matched": 131,
+          "total": 140
+        },
+        "allExpectedCited": {
+          "matched": 2,
+          "total": 5
+        },
+        "exactCitations": {
+          "matched": 25,
+          "total": 25
+        },
+        "supportedClaims": {
+          "matched": 12,
+          "total": 14
+        },
+        "lookup": {
+          "requests": 2,
+          "generationCalls": 0
+        }
+      },
+      "after": {
+        "replayCases": 205,
+        "spanCases": 170,
+        "spans": {
+          "matched": 295,
+          "total": 526
+        },
+        "allMeetingsInContext": {
+          "matched": 131,
+          "total": 140
+        },
+        "allExpectedCited": {
+          "matched": 2,
+          "total": 5
+        },
+        "exactCitations": {
+          "matched": 25,
+          "total": 25
+        },
+        "supportedClaims": {
+          "matched": 15,
+          "total": 16
+        },
+        "lookup": {
+          "requests": 2,
+          "generationCalls": 0
+        }
+      }
+    },
+    {
+      "workspaceId": 458,
+      "before": {
+        "replayCases": 55,
+        "spanCases": 5,
+        "spans": {
+          "matched": 7,
+          "total": 7
+        },
+        "allMeetingsInContext": {
+          "matched": 6,
+          "total": 8
+        },
+        "allExpectedCited": {
+          "matched": 5,
+          "total": 5
+        },
+        "exactCitations": {
+          "matched": 9,
+          "total": 9
+        },
+        "supportedClaims": {
+          "matched": 9,
+          "total": 9
+        },
+        "lookup": {
+          "requests": 2,
+          "generationCalls": 0
+        }
+      },
+      "after": {
+        "replayCases": 55,
+        "spanCases": 5,
+        "spans": {
+          "matched": 7,
+          "total": 7
+        },
+        "allMeetingsInContext": {
+          "matched": 6,
+          "total": 8
+        },
+        "allExpectedCited": {
+          "matched": 5,
+          "total": 5
+        },
+        "exactCitations": {
+          "matched": 11,
+          "total": 11
+        },
+        "supportedClaims": {
+          "matched": 11,
+          "total": 11
+        },
+        "lookup": {
+          "requests": 2,
+          "generationCalls": 0
+        }
+      }
+    }
+  ],
+  "s18": {
+    "sequential": {
+      "before": {
+        "requests": 6,
+        "inContext": 6,
+        "modelCited": 6,
+        "verified": 6
+      },
+      "after": {
+        "requests": 6,
+        "inContext": 6,
+        "modelCited": 6,
+        "verified": 6
+      }
+    },
+    "sustained": {
+      "before": {
+        "requests": 2,
+        "inContext": 2,
+        "modelCited": 2,
+        "verified": 2
+      },
+      "after": {
+        "requests": 2,
+        "inContext": 2,
+        "modelCited": 2,
+        "verified": 2
+      }
+    },
+    "passageTokens": {
+      "before": {
+        "total": 939,
+        "offTopic": 583
+      },
+      "after": {
+        "total": 928,
+        "offTopic": 192
+      }
+    }
+  }
+}

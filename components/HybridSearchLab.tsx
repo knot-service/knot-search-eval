@@ -25,6 +25,7 @@ const tabs = [
   { id: "phase4", label: "4차 Spring 경로" },
   { id: "phase5", label: "5차 근거·출처" },
   { id: "phase6", label: "6차 혼합 부하" },
+  { id: "quality1", label: "정확도 1차" },
 ] as const;
 type Tab = (typeof tabs)[number]["id"];
 type Kind = "comparison" | "lookup" | "synthesis";
@@ -93,7 +94,9 @@ export function HybridSearchLab({ localAccess }: { readonly localAccess: boolean
       {tab === "dataset" && <Workspace1EvaluationDraft />}
       {tab === "phase1" && <Workspace1Phase1 />}
       {(tab === "phase2" || tab === "phase3") && <Workspace1SearchQuality key={tab} stage={tab} />}
-      {(tab === "phase4" || tab === "phase5" || tab === "phase6") && <SpringSearchReport key={tab} stage={tab} />}
+      {(tab === "phase4" || tab === "phase5" || tab === "phase6" || tab === "quality1") && (
+        <SpringSearchReport key={tab} stage={tab} />
+      )}
       {(tab === "comparison" || tab === "lookup" || tab === "synthesis") && <RunPanel key={tab} kind={tab} />}
     </section>
   );

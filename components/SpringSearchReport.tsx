@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import styles from "./HybridSearchLab.module.css";
+import { SearchQualityReport } from "./SearchQualityReport";
 
 const routeLabels = {
   DOCUMENT_FIND: "문서 찾기",
@@ -126,7 +127,7 @@ const seconds = (value: number) => `${(value / 1000).toFixed(3)}초`;
 const corpus = { 1: "Workspace 1 · AI 초안", 458: "Workspace 458 · v1.30" };
 const repo = "https://github.com/knot-service/knot-search-hybrid-eval";
 
-export function SpringSearchReport({ stage }: { readonly stage: "phase4" | "phase5" | "phase6" }) {
+export function SpringSearchReport({ stage }: { readonly stage: "phase4" | "phase5" | "phase6" | "quality1" }) {
   const [result, setResult] = useState<unknown>();
   const [error, setError] = useState("");
   useEffect(() => {
@@ -145,6 +146,7 @@ export function SpringSearchReport({ stage }: { readonly stage: "phase4" | "phas
 
   if (error) return <p role="alert">{error}</p>;
   if (result === undefined) return <p role="status">Spring 실험 결과를 불러오는 중입니다.</p>;
+  if (stage === "quality1") return <SearchQualityReport result={result} />;
 
   if (stage === "phase4") {
     const report = Phase4.safeParse(result);
