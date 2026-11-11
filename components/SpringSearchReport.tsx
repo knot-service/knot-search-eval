@@ -92,15 +92,14 @@ const GenerationComparison = QwenComparison.extend({
   priorityContextComparisons: QwenComparison.shape.contextComparisons,
   priorityOverlaps: z.object({ MEETING_QUESTION: z.number(), MULTI_MEETING_SYNTHESIS: z.number() }),
 });
-const AgingRun = z.object({
-  before: GenerationRun, after: GenerationRun, promotionWaitMs: z.number(),
+const AgingVariant = z.object({
+  after: GenerationRun, promotionWaitMs: z.number(),
   contextComparisons: QwenComparison.shape.contextComparisons,
   promotedByConcurrency: z.record(z.string(), z.number()),
+  wavesWithEarlierSynthesis: z.object({ before: z.number(), after: z.number() }).optional(),
 });
-const AgingComparison = z.object({
-  balanced: AgingRun,
-  surge: AgingRun.extend({ wavesWithEarlierSynthesis: z.object({ before: z.number(), after: z.number() }) }),
-});
+const AgingRun = z.object({ before: GenerationRun, variants: z.array(AgingVariant).min(1) });
+const AgingComparison = z.object({ balanced: AgingRun, surge: AgingRun });
 const Phase6 = MixedLoad.extend({
   split: MixedLoad, qwenReplay: QwenComparison, generationReplay: GenerationComparison, agingReplay: AgingComparison,
 });
@@ -290,22 +289,32 @@ function SynthesisAgingReport({ comparison }: { readonly comparison: z.infer<typ
   const [scenario, setScenario] = useState("surge");
   const isSurge = scenario === "surge";
   const concurrency = isSurge ? 6 : Number(scenario);
-  const { before, after, contextComparisons, promotedByConcurrency, promotionWaitMs } = isSurge ? comparison.surge : comparison.balanced;
-  const baseline = before.levels.find((row) => row.concurrency === concurrency);
-  const level = after.levels.find((row) => row.concurrency === concurrency);
-  const previous = before.quality.find((row) => row.workspaceId === 458);
-  const quality = after.quality.find((row) => row.workspaceId === 458);
-  if (!baseline || !level || !previous || !quality) return null;
+  const { before, variants } = isSurge ? comparison.surge : comparison.balanced;
+  const runs = [
+    { label: "기존", run: before },
+    ...variants.map((variant) => ({ label: `${variant.promotionWaitMs / 1000}초`, run: variant.after })),
+  ];
+  const levels = runs.map(({ run }) => run.levels.find((row) => row.concurrency === concurrency));
+  const baseline = levels[0];
+  if (!baseline) return null;
 
   const time = (ms: number | null | undefined) => ms == null ? "—" : (ms / 1000).toFixed(3);
   const tail = (values: z.infer<typeof Tail> | undefined) => `${time(values?.p95)} / ${time(values?.p99)}`;
-  const contextChecks = contextComparisons.find((row) => row.workspaceId === 458)?.requests ?? 0;
-  const missing = (row: typeof quality) => row.missingCases.map(({ caseId, requests }) => `${caseId} ${requests}건`).join(" · ") || "없음";
+  const values = (select: (run: z.infer<typeof GenerationRun>) => string | number) =>
+    runs.map(({ run }) => select(run)).join(" → ");
+  const quality = runs.map(({ run }) => run.quality.find((row) => row.workspaceId === 458));
+  const qualityValues = (select: (row: NonNullable<(typeof quality)[number]>) => string) =>
+    quality.map((row) => row ? select(row) : "—").join(" → ");
+  const contextLosses = variants.map((variant, index) => {
+    const checks = variant.contextComparisons.find((row) => row.workspaceId === 458)?.requests ?? 0;
+    return `${quality[index + 1]?.meetingContextRegressions ?? 0}/${checks}`;
+  });
 
   return (
     <section className={`panel ${styles.metricCard} ${styles.qwenReport}`} aria-label="오래 기다린 회의 종합 우선 처리">
-      <h2>오래 기다린 회의 종합 우선 처리</h2>
-      <p>생성 슬롯 2개를 공유합니다. 종합이 {promotionWaitMs / 1000}초 이상 기다리면 다음 빈 슬롯에서 먼저 시작합니다.</p>
+      <h2>회의 종합 승격 기준 비교</h2>
+      <p>생성 슬롯 2개를 공유합니다. 기존 정책은 내용 질문 우선입니다. 2·3·4초 정책은 기준 이상 기다린 종합에 다음 빈 슬롯을 우선 배정합니다.</p>
+      <p><strong>추천 실험값 4초</strong> · 균등 6건에서 내용 질문 대기 p99는 0.115초였습니다. 집중 부하에서 종합이 마지막 내용 질문보다 먼저 시작한 회차는 0/12회였습니다.</p>
       <label className={styles.picker}>
         종합 대기 실험 부하
         <select value={scenario} onChange={(event) => setScenario(event.target.value)}>
@@ -316,32 +325,34 @@ function SynthesisAgingReport({ comparison }: { readonly comparison: z.infer<typ
       </label>
       <p>{isSurge
         ? "한 회차에 내용 질문 4건을 시차를 두고 보내고, 중간에 종합 1건과 문서 찾기 1건을 넣었습니다."
-        : "세 경로를 같은 비율로 보냈습니다. 내용 질문 우선은 직전 균등 부하 실측값입니다."} 각 셀은 p95 / p99이며 단위는 초입니다.</p>
-      <table className={styles.timingTable} aria-label="종합 대기 승격 전후 지연 비교">
-        <thead><tr><th scope="col">측정 구간</th><th scope="col">내용 질문 우선</th><th scope="col">대기한 종합 승격</th></tr></thead>
-        {level.routes.map((row) => {
-          const prior = baseline.routes.find((route) => route.route === row.route);
-          return (
-            <tbody key={row.route}>
-              <tr><th scope="rowgroup" colSpan={3}>{routeLabels[row.route]} · 각 {row.stages.firstSse.samples}건</th></tr>
-              {workerRows.map(([key, label]) => (
-                <tr key={key}><th scope="row">{label}</th><td>{tail(prior?.stages[key])}</td><td>{tail(row.stages[key])}</td></tr>
-              ))}
-            </tbody>
-          );
-        })}
+        : "세 경로를 같은 비율로 보냈습니다."} 단위는 초이며 각 셀은 p95 / p99입니다. p99는 관측 최댓값입니다. 기존·2초 열은 같은 질문과 데이터로 측정한 직전 실험값입니다.</p>
+      <table className={`${styles.timingTable} ${styles.generationTable}`} aria-label="종합 승격 기준별 지연 비교">
+        <thead><tr><th scope="col">측정 구간</th>{runs.map(({ label }) => <th scope="col" key={label}>{label}</th>)}</tr></thead>
+        {baseline.routes.map((row) => (
+          <tbody key={row.route}>
+            <tr><th scope="rowgroup" colSpan={runs.length + 1}>{routeLabels[row.route]} · 각 {row.stages.firstSse.samples}건</th></tr>
+            {workerRows.map(([key, label]) => (
+              <tr key={key}>
+                <th scope="row">{label}</th>
+                {levels.map((level, index) => (
+                  <td key={runs[index].label}>{tail(level?.routes.find((route) => route.route === row.route)?.stages[key])}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        ))}
       </table>
-      <p>이 조건에서 우선 처리된 종합 {promotedByConcurrency[String(concurrency)] ?? 0}건. 아래 완료·인용 수는 {isSurge ? "집중 부하 전체" : "균등 3·6건 전체"}입니다.</p>
-      {isSurge && <p>종합이 마지막 내용 질문보다 먼저 시작한 회차는 {comparison.surge.wavesWithEarlierSynthesis.before} → {comparison.surge.wavesWithEarlierSynthesis.after}회였습니다.</p>}
-      <p>SSE 완료 {before.completed}/{before.requests} → {after.completed}/{after.requests}건 · 문서 찾기 {before.lookupRequests} → {after.lookupRequests}건 · 생성 {before.lookupGenerationCalls} → {after.lookupGenerationCalls}회 · 분류 {before.lookupClassificationCalls} → {after.lookupClassificationCalls}회</p>
+      <p>표 순서대로 우선 처리된 종합 {["—", ...variants.map((variant) => variant.promotedByConcurrency[String(concurrency)] ?? 0)].join(" → ")}건.</p>
+      {isSurge && <p>종합이 마지막 내용 질문보다 먼저 시작한 회차는 {[variants[0].wavesWithEarlierSynthesis?.before, ...variants.map((variant) => variant.wavesWithEarlierSynthesis?.after)].join(" → ")}회였습니다.</p>}
+      <p>{isSurge ? "집중 부하 전체" : "균등 3·6건 전체"} SSE 완료 {values((run) => `${run.completed}/${run.requests}`)}건. 문서 찾기 {values((run) => run.lookupRequests)}건 · 생성 {values((run) => run.lookupGenerationCalls)}회 · 분류 {values((run) => run.lookupClassificationCalls)}회</p>
       <h3>Workspace 458 최종 인용</h3>
       <dl className={`${styles.metrics} ${styles.comparisonMetrics}`}>
-        <dt>기대 회의가 줄어든 검색 문맥</dt><dd>{ratio(quality.meetingContextRegressions, contextChecks)}</dd>
-        <dt>기대 회의를 모두 인용한 답변</dt><dd>{previous.allExpectedMeetingsCited}/{previous.generated} → {quality.allExpectedMeetingsCited}/{quality.generated}건</dd>
-        <dt>원문·저장 출처와 일치한 인용</dt><dd>{previous.exactCitations}/{previous.citationCount} → {quality.exactCitations}/{quality.citationCount}개</dd>
-        <dt>S18-01 · 기대 문서를 최종 인용</dt><dd>{previous.trackedCase.allExpectedDocumentsCited}/{previous.trackedCase.requests} → {quality.trackedCase.allExpectedDocumentsCited}/{quality.trackedCase.requests}건</dd>
+        <dt>기대 회의가 줄어든 검색 문맥 · 기존 대비</dt><dd>— → {contextLosses.join(" → ")}건</dd>
+        <dt>기대 회의를 모두 인용한 답변</dt><dd>{qualityValues((row) => `${row.allExpectedMeetingsCited}/${row.generated}`)}건</dd>
+        <dt>원문·저장 출처와 일치한 인용</dt><dd>{qualityValues((row) => `${row.exactCitations}/${row.citationCount}`)}개</dd>
+        <dt>S18-01 · 기대 문서를 최종 인용</dt><dd>{qualityValues(({ trackedCase }) => `${trackedCase.allExpectedDocumentsCited}/${trackedCase.requests}`)}건</dd>
       </dl>
-      <p>기대 회의 인용 누락 사례 {missing(previous)} → {missing(quality)}. <a href={`${repo}/tree/codex/hybrid-search-lookup-worker/experiments/hybrid-search`}>실험 코드와 재실행 방법</a></p>
+      <p>기대 회의 인용 누락 사례 {qualityValues((row) => row.missingCases.map(({ caseId, requests }) => `${caseId} ${requests}건`).join(" · ") || "없음")}. <a href={`${repo}/tree/codex/hybrid-search-lookup-worker/experiments/hybrid-search`}>실험 코드와 재실행 방법</a></p>
     </section>
   );
 }
