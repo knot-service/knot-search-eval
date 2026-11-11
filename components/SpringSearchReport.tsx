@@ -87,7 +87,11 @@ const GenerationRun = QwenRun.extend({
     }),
   })),
 });
-const GenerationComparison = QwenComparison.extend({ shared: GenerationRun, split: GenerationRun });
+const GenerationComparison = QwenComparison.extend({
+  shared: GenerationRun, split: GenerationRun, priority: GenerationRun,
+  priorityContextComparisons: QwenComparison.shape.contextComparisons,
+  priorityOverlaps: z.object({ MEETING_QUESTION: z.number(), MULTI_MEETING_SYNTHESIS: z.number() }),
+});
 const Phase6 = MixedLoad.extend({ split: MixedLoad, qwenReplay: QwenComparison, generationReplay: GenerationComparison });
 const number = (value: number) => value.toLocaleString("ko-KR");
 const ratio = (actual: number, total: number) => `${number(actual)} / ${number(total)}건`;
@@ -240,7 +244,7 @@ function MixedLoadReport({ report }: { readonly report: z.infer<typeof Phase6> }
         })}
       </div>
       <p>HTTP 전송부터 비어 있지 않은 첫 답변과 완료 이벤트를 측정했습니다. 경로별 표본이 12·24건이므로 이 표의 p99는 관측 최댓값입니다. 예열은 제외했습니다.</p>
-      <GenerationSplitReport comparison={report.generationReplay} concurrency={level.concurrency} />
+      <GenerationPolicyReport comparison={report.generationReplay} concurrency={level.concurrency} />
       <QwenReplayReport comparison={report.qwenReplay} concurrency={level.concurrency} />
       <h2>근거 품질 회귀</h2>
       <div className={styles.corpora}>
@@ -270,62 +274,65 @@ function MixedLoadReport({ report }: { readonly report: z.infer<typeof Phase6> }
 
 const workerRows = [["workerQueue", "Worker 대기"], ["firstSse", "첫 SSE"], ["completedSse", "전체 완료"]] as const;
 
-function GenerationSplitReport({ comparison, concurrency }: {
+function GenerationPolicyReport({ comparison, concurrency }: {
   readonly comparison: z.infer<typeof GenerationComparison>;
   readonly concurrency: number;
 }) {
-  const { shared, split } = comparison;
-  const before = shared.levels.find((level) => level.concurrency === concurrency);
-  const after = split.levels.find((level) => level.concurrency === concurrency);
-  const previous = shared.quality.find((row) => row.workspaceId === 458);
-  const quality = split.quality.find((row) => row.workspaceId === 458);
-  if (!before || !after || !previous || !quality) return null;
+  const runs = [
+    { label: "공용", run: comparison.shared },
+    { label: "고정 분리", run: comparison.split },
+    { label: "슬롯 공유", run: comparison.priority },
+  ];
+  const levels = runs.map(({ run }) => run.levels.find((level) => level.concurrency === concurrency));
+  const last = levels.at(-1);
+  if (!last) return null;
 
   const time = (ms: number | null | undefined) => ms == null ? "—" : (ms / 1000).toFixed(3);
-  const pair = (left: number | null | undefined, right: number | null | undefined) => (
-    <>{time(left)} <span className={styles.comparisonArrow}>→</span> <strong>{time(right)}</strong></>
-  );
-  const coverage = previous.trackedCase;
-  const next = quality.trackedCase;
-  const contextChecks = comparison.contextComparisons.find((row) => row.workspaceId === 458)?.requests ?? 0;
-  const missingCases = (row: typeof quality) => row.missingCases.map(({ caseId, requests }) => `${caseId} ${requests}건`).join(" · ") || "없음";
+  const values = (select: (run: z.infer<typeof GenerationRun>) => string | number) =>
+    runs.map(({ run }) => select(run)).join(" → ");
+  const quality = runs.map(({ run }) => run.quality.find((row) => row.workspaceId === 458));
+  const qualityValues = (select: (row: NonNullable<(typeof quality)[number]>) => string) =>
+    quality.map((row) => row ? select(row) : "—").join(" → ");
+  const contexts = [comparison.contextComparisons, comparison.priorityContextComparisons]
+    .map((rows) => rows.find((row) => row.workspaceId === 458)?.requests ?? 0);
 
   return (
-    <section className={`panel ${styles.metricCard} ${styles.qwenReport}`} aria-label="생성 Worker 경로 분리 전후">
-      <h2>생성 Worker 경로 분리 전후</h2>
-      <p>생성 공용 슬롯 2개 → 내용 질문 1개 + 회의 종합 1개. 문서 찾기 슬롯 1개를 유지했습니다.</p>
-      <p>동시 {concurrency}건 · 공용 생성 → 경로별 생성, 단위 초</p>
-      <table className={styles.timingTable} aria-label="경로별 생성 Worker 지연 비교">
-        <thead><tr><th scope="col">측정 구간</th><th scope="col">p95</th><th scope="col">p99</th></tr></thead>
-        {after.routes.map((row) => {
-          const baseline = before.routes.find((item) => item.route === row.route);
-          return (
-            <tbody key={row.route}>
-              <tr><th scope="rowgroup" colSpan={3}>{routeLabels[row.route]} · 각 {row.stages.firstSse.samples}건</th></tr>
-              {workerRows.map(([key, label]) => (
-                <tr key={key}>
-                  <th scope="row">{label}</th>
-                  <td>{pair(baseline?.stages[key].p95, row.stages[key].p95)}</td>
-                  <td>{pair(baseline?.stages[key].p99, row.stages[key].p99)}</td>
-                </tr>
-              ))}
-            </tbody>
-          );
-        })}
+    <section className={`panel ${styles.metricCard} ${styles.qwenReport}`} aria-label="생성 Worker 운영 방식 비교">
+      <h2>생성 Worker 운영 방식 비교</h2>
+      <p>생성 슬롯 2개와 문서 찾기 슬롯 1개를 유지했습니다. 슬롯 공유에서는 대기 중인 내용 질문을 먼저 시작하고, 남은 슬롯을 회의 종합이 사용합니다.</p>
+      <p>동시 {concurrency}건 · 단위 초 · 각 셀은 p95 / p99입니다. 공용·고정 분리는 같은 질문과 데이터로 측정한 직전 실험값입니다.</p>
+      <table className={`${styles.timingTable} ${styles.generationTable}`} aria-label="세 가지 생성 Worker 방식 지연 비교">
+        <thead><tr><th scope="col">측정 구간</th>{runs.map(({ label }) => <th scope="col" key={label}>{label}</th>)}</tr></thead>
+        {last.routes.map((row) => (
+          <tbody key={row.route}>
+            <tr><th scope="rowgroup" colSpan={4}>{routeLabels[row.route]} · 각 {row.stages.firstSse.samples}건</th></tr>
+            {workerRows.map(([key, label]) => (
+              <tr key={key}>
+                <th scope="row">{label}</th>
+                {levels.map((level, index) => {
+                  const stage = level?.routes.find((item) => item.route === row.route)?.stages[key];
+                  return <td key={runs[index].label}>{time(stage?.p95)} / {time(stage?.p99)}</td>;
+                })}
+              </tr>
+            ))}
+          </tbody>
+        ))}
       </table>
-      <p>SSE 완료 {shared.completed}/{shared.requests} → {split.completed}/{split.requests}건 · 지정 슬롯 처리 {shared.workerMatches} → {split.workerMatches}건</p>
-      <p>문서 찾기 {shared.lookupRequests} → {split.lookupRequests}건 · 생성 {shared.lookupGenerationCalls} → {split.lookupGenerationCalls}회 · 분류 {shared.lookupClassificationCalls} → {split.lookupClassificationCalls}회</p>
+      <p>SSE 완료 {values((run) => `${run.completed}/${run.requests}`)}건 · 지정 슬롯 처리 {values((run) => run.workerMatches)}건</p>
+      <p>문서 찾기 {values((run) => run.lookupRequests)}건 · 생성 {values((run) => run.lookupGenerationCalls)}회 · 분류 {values((run) => run.lookupClassificationCalls)}회</p>
+      <p>슬롯 공유에서 같은 경로가 생성 슬롯 2개를 동시에 사용한 횟수는 내용 질문 {comparison.priorityOverlaps.MEETING_QUESTION}회, 회의 종합 {comparison.priorityOverlaps.MULTI_MEETING_SYNTHESIS}회였습니다.</p>
       <h3>Workspace 458 최종 인용</h3>
+      <p>공용 → 고정 분리 → 슬롯 공유 순서입니다.</p>
       <dl className={`${styles.metrics} ${styles.comparisonMetrics}`}>
-        <dt>분리 후 기대 회의가 줄어든 문맥</dt><dd>{ratio(quality.meetingContextRegressions, contextChecks)}</dd>
-        <dt>기대 회의를 모두 인용한 생성 답변</dt><dd>{previous.allExpectedMeetingsCited}/{previous.generated} → {quality.allExpectedMeetingsCited}/{quality.generated}건</dd>
-        <dt>원문·저장 출처와 일치한 인용</dt><dd>{previous.exactCitations}/{previous.citationCount} → {quality.exactCitations}/{quality.citationCount}개</dd>
-        <dt>S18-01 · 기대 문서가 검색 문맥에 있음</dt><dd>{coverage.allExpectedDocumentsInContext}/{coverage.requests} → {next.allExpectedDocumentsInContext}/{next.requests}건</dd>
-        <dt>S18-01 · 기대 문서를 최종 인용</dt><dd>{coverage.allExpectedDocumentsCited}/{coverage.requests} → {next.allExpectedDocumentsCited}/{next.requests}건</dd>
-        <dt>S18-01 · 최종 인용 없음</dt><dd>{coverage.noCitations}/{coverage.requests} → {next.noCitations}/{next.requests}건</dd>
+        <dt>기대 회의가 줄어든 문맥 · 공용 대비</dt><dd>— → {ratio(quality[1]?.meetingContextRegressions ?? 0, contexts[0])} → {ratio(quality[2]?.meetingContextRegressions ?? 0, contexts[1])}</dd>
+        <dt>기대 회의를 모두 인용한 답변</dt><dd>{qualityValues((row) => `${row.allExpectedMeetingsCited}/${row.generated}`)}건</dd>
+        <dt>원문·저장 출처와 일치한 인용</dt><dd>{qualityValues((row) => `${row.exactCitations}/${row.citationCount}`)}개</dd>
+        <dt>S18-01 · 기대 문서가 검색 문맥에 있음</dt><dd>{qualityValues(({ trackedCase }) => `${trackedCase.allExpectedDocumentsInContext}/${trackedCase.requests}`)}건</dd>
+        <dt>S18-01 · 기대 문서를 최종 인용</dt><dd>{qualityValues(({ trackedCase }) => `${trackedCase.allExpectedDocumentsCited}/${trackedCase.requests}`)}건</dd>
+        <dt>S18-01 · 최종 인용 없음</dt><dd>{qualityValues(({ trackedCase }) => `${trackedCase.noCitations}/${trackedCase.requests}`)}건</dd>
       </dl>
-      <p>기대 회의 인용 누락 사례 {missingCases(previous)} → {missingCases(quality)}</p>
-      <p>S18-01은 앞선 실험에서 검색 문맥에 기대 문서가 있었지만 인용이 빠졌던 사례입니다. <a href={`${repo}/tree/codex/hybrid-search-lookup-worker/experiments/hybrid-search`}>생성 Worker 분리 코드와 재실행 방법</a></p>
+      <p>기대 회의 인용 누락 사례 {qualityValues((row) => row.missingCases.map(({ caseId, requests }) => `${caseId} ${requests}건`).join(" · ") || "없음")}</p>
+      <p>S18-01은 검색 문맥에 기대 문서가 있었지만 인용이 빠졌던 사례입니다. <a href={`${repo}/tree/codex/hybrid-search-lookup-worker/experiments/hybrid-search`}>실험 코드와 재실행 방법</a></p>
     </section>
   );
 }

@@ -240,4 +240,6 @@
 
 @media (max-width: 500px) {
   .timingTable { font-size: 12px; }
+  .generationTable { table-layout: fixed; }
+  .generationTable td { line-height: 1.5; }
 }
