@@ -3,7 +3,7 @@ import { z } from "zod";
 import { verifySession } from "../../../lib/auth";
 
 export const dynamic = "force-dynamic";
-const Kind = z.enum(["comparison", "lookup", "synthesis"]);
+const Kind = z.enum(["comparison", "lookup", "synthesis", "corpus"]);
 
 async function forward(req: Request) {
   const url = new URL(req.url);
@@ -24,8 +24,12 @@ async function forward(req: Request) {
   if (!kind.success) {
     return Response.json({ error: "실험 유형을 선택해 주세요." }, { status: 400 });
   }
+  if (kind.data === "corpus" && req.method !== "GET") {
+    return Response.json({ error: "워크스페이스 집계는 조회만 지원합니다." }, { status: 405 });
+  }
+  const path = kind.data === "corpus" ? "/workspaces" : `/runs/${kind.data}`;
   try {
-    const result = await fetch(`http://127.0.0.1:18173/runs/${kind.data}`, {
+    const result = await fetch(`http://127.0.0.1:18173${path}`, {
       method: req.method,
       cache: "no-store",
       signal: AbortSignal.timeout(165_000),
