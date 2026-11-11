@@ -1,5 +1,6 @@
 "use client";
 import { StageResult } from "./StageResult";
+import { HybridSearchLab } from "./HybridSearchLab";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   LayoutDashboard,
@@ -32,11 +33,12 @@ import sampleDataset from "../data/synthetic-dataset.json";
 import fullDataset from "../data/synthetic-full-dataset.json";
 import sampleA from "../data/synthetic-run-a.json";
 import sampleB from "../data/synthetic-run-b.json";
-type Page = "overview" | "datasets" | "runs" | "compare" | "reviews";
+type Page = "overview" | "datasets" | "runs" | "hybrid" | "compare" | "reviews";
 const nav: { id: Page; label: string; icon: typeof Search }[] = [
   { id: "overview", label: "대시보드", icon: LayoutDashboard },
   { id: "datasets", label: "평가셋", icon: FolderOpen },
   { id: "runs", label: "실험실", icon: FlaskConical },
+  { id: "hybrid", label: "하이브리드 검색 실험", icon: Search },
   { id: "compare", label: "실험 비교", icon: GitCompareArrows },
   { id: "reviews", label: "검수 이력", icon: ClipboardCheck },
 ];
@@ -342,7 +344,7 @@ export function Dashboard() {
         </div>
         <p className="side-label">WORKSPACE</p>
         <nav>
-          {nav.map(({ id, label, icon: Icon }) => (
+          {nav.filter(({ id }) => id !== "hybrid" || localAccess).map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               onClick={() => go(id)}
@@ -373,13 +375,15 @@ export function Dashboard() {
             워크스페이스 <ChevronRight size={13} />{" "}
             <span>{nav.find((n) => n.id === page)?.label}</span>
           </div>
-          {error && (
+          {page !== "hybrid" && error && (
             <div className="alert" role="alert">
               {error}
               <button onClick={() => setError("")}>닫기</button>
             </div>
           )}
-          {!state ? (
+          {page === "hybrid" && localAccess ? (
+            <HybridSearchLab />
+          ) : !state ? (
             <div className="empty">
               {error
                 ? "저장소에 연결할 수 없어요."
@@ -755,6 +759,10 @@ export function Dashboard() {
                     </label>
                   </div>
                   <nav className="experiment-spaces" aria-label="워크플로우별 실험 공간">
+                    {localAccess && <button className="experiment-space" onClick={() => go("hybrid")}>
+                      <span className="experiment-space-top"><strong>하이브리드 검색 실험</strong></span>
+                      <small>키워드·벡터 비교, 문서 찾기, 회의 종합</small>
+                    </button>}
                     {experimentSpaces.map((space) => <button key={space.id} className={`experiment-space ${runSpace === space.id ? "selected" : ""}`} aria-pressed={runSpace === space.id} onClick={() => { setRunSpace(space.id); setRunLimit(20); setRunVersion("all"); setRunRevision("all"); setRunSearch(""); setOpenRun(""); setRunNotes(""); setReviewCase(""); }}>
                       <span className="experiment-space-top"><strong>{space.label}</strong><span>{space.planned ? "준비 중" : runs.filter(run => belongsToSpace(run, space.id)).length}</span></span>
                       <small>{space.description}</small>
