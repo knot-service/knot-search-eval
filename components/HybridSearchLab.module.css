@@ -197,3 +197,17 @@
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
+
+.comparisonMetrics dd {
+  font-weight: 500;
+}
+
+.comparisonMetrics dd strong {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.comparisonArrow {
+  padding-inline: 2px;
+  color: var(--body);
+}

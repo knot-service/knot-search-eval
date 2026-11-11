@@ -29,9 +29,9 @@ const Phase5 = z.object({
   })),
 });
 const Tail = z.object({ samples: z.number(), p95: z.number().nullable(), p99: z.number().nullable() });
-const Phase6 = z.object({
+const MixedLoad = z.object({
   warmupRequests: z.number(), wavesPerLevel: z.number(), workerConcurrency: z.number(),
-  streamConcurrency: z.number(), pollIntervalMs: z.number(), requests: z.number(), completed: z.number(),
+  lookupConcurrency: z.number().default(0), streamConcurrency: z.number(), pollIntervalMs: z.number(), requests: z.number(), completed: z.number(),
   routeMatches: z.number(), lookupRequests: z.number(), lookupGenerationCalls: z.number(),
   lookupClassificationCalls: z.number(),
   levels: z.array(z.object({
@@ -42,11 +42,13 @@ const Phase6 = z.object({
   })).min(1),
   quality: z.array(z.object({
     workspaceId: Workspace, contextComparisons: z.number(), contextRegressions: z.number(),
-    contextImprovements: z.number(), exactCitations: z.number(), citationCount: z.number(),
+    contextImprovements: z.number(), sharedComparisons: z.number().default(0),
+    sharedRegressions: z.number().default(0), exactCitations: z.number(), citationCount: z.number(),
     semanticClaims: z.number(), supportedClaims: z.number(), pairedSynthesis: z.number(),
     allCitedMeetingsBefore: z.number(), allCitedMeetingsAfter: z.number(),
   })),
 });
+const Phase6 = MixedLoad.extend({ split: MixedLoad });
 const number = (value: number) => value.toLocaleString("ko-KR");
 const ratio = (actual: number, total: number) => `${number(actual)} / ${number(total)}건`;
 const percent = (value: number) => `${(100 * value).toFixed(1)}%`;
@@ -149,20 +151,27 @@ export function SpringSearchReport({ stage }: { readonly stage: "phase4" | "phas
 function MixedLoadReport({ report }: { readonly report: z.infer<typeof Phase6> }) {
   const [concurrency, setConcurrency] = useState<number>();
   const level = report.levels.find((item) => item.concurrency === concurrency) ?? report.levels.at(-1)!;
-  const latency = (value: number | null) => value === null ? "표본 없음" : seconds(value);
+  const after = report.split;
+  const splitLevel = after.levels.find((item) => item.concurrency === level.concurrency);
+  const latency = (value: number | null | undefined) => value == null ? "표본 없음" : seconds(value);
+  const compare = (before: number | null, next: number | null | undefined) => (
+    <>{latency(before)} <span className={styles.comparisonArrow}>→</span> <strong>{latency(next)}</strong></>
+  );
+
   return (
     <section className={styles.content} aria-label="6차 혼합 동시 부하 실측">
       <div>
-        <h2>세 검색 경로의 혼합 동시 부하</h2>
-        <p>Workspace 1·458의 질문을 섞어 같은 Spring Worker와 실제 Qwen에서 실행했습니다.</p>
+        <h2>문서 찾기 Worker 분리 전후</h2>
+        <p>Workspace 1·458의 같은 질문을 동시 3·6건으로 반복했습니다. 각 값은 공용 Worker → 분리 Worker 순서입니다.</p>
       </div>
       <dl className={`panel ${styles.metricCard} ${styles.loadSummary}`}>
-        <div><dt>SSE 완료</dt><dd>{ratio(report.completed, report.requests)}</dd></div>
-        <div><dt>라우팅 일치</dt><dd>{ratio(report.routeMatches, report.requests)}</dd></div>
-        <div><dt>문서 찾기 생성 호출</dt><dd>{report.lookupGenerationCalls}회 / {report.lookupRequests}건</dd></div>
+        <div><dt>분리 후 SSE 완료</dt><dd>{ratio(after.completed, after.requests)}</dd></div>
+        <div><dt>분리 후 라우팅 일치</dt><dd>{ratio(after.routeMatches, after.requests)}</dd></div>
+        <div><dt>문서 찾기 생성 호출</dt><dd>{report.lookupGenerationCalls} → {after.lookupGenerationCalls}회</dd></div>
       </dl>
       <div className={styles.controls}>
-        <p>Worker 슬롯 {report.workerConcurrency}개 · SSE 슬롯 {report.streamConcurrency}개 · 단계별 {report.wavesPerLevel}회 반복</p>
+        <p>공용 슬롯 {report.workerConcurrency}개 → 생성 {after.workerConcurrency}개 + 문서 찾기 {after.lookupConcurrency}개<br />
+          SSE 슬롯 {after.streamConcurrency}개 · 조건당 {after.wavesPerLevel}회 반복</p>
         <label className={styles.picker}>
           동시 요청 수
           <select value={level.concurrency} onChange={(event) => setConcurrency(Number(event.target.value))}>
@@ -171,39 +180,48 @@ function MixedLoadReport({ report }: { readonly report: z.infer<typeof Phase6> }
         </label>
       </div>
       <div className={styles.grid}>
-        {level.routes.map((row) => (
-          <section className={`panel ${styles.metricCard}`} key={row.route}>
-            <h3>{routeLabels[row.route]}</h3>
-            <p className={styles.runHeading}>첫 SSE {row.firstMs.samples}건 · 완료 {ratio(row.completedMs.samples, row.requests)}</p>
-            <dl className={styles.metrics}>
-              <dt>첫 SSE p95</dt><dd>{latency(row.firstMs.p95)}</dd>
-              <dt>첫 SSE p99</dt><dd>{latency(row.firstMs.p99)}</dd>
-              <dt>전체 완료 p95</dt><dd>{latency(row.completedMs.p95)}</dd>
-              <dt>전체 완료 p99</dt><dd>{latency(row.completedMs.p99)}</dd>
-              <dt>Worker 대기 p95</dt><dd>{seconds(row.workerQueueP95Ms)}</dd>
-              <dt>후보 검색 p95</dt><dd>{seconds(row.workerRetrievalP95Ms)}</dd>
-              <dt>생성 호출 합계</dt><dd>{row.generationCalls}회</dd>
-            </dl>
-          </section>
-        ))}
+        {level.routes.map((row) => {
+          const split = splitLevel?.routes.find((item) => item.route === row.route);
+          return (
+            <section className={`panel ${styles.metricCard}`} key={row.route}>
+              <h3>{routeLabels[row.route]}</h3>
+              <p className={styles.runHeading}>완료 {row.completedMs.samples}/{row.requests} → {split ? ratio(split.completedMs.samples, split.requests) : "표본 없음"}</p>
+              <dl className={`${styles.metrics} ${styles.comparisonMetrics}`}>
+                <dt>첫 SSE p95</dt><dd>{compare(row.firstMs.p95, split?.firstMs.p95)}</dd>
+                <dt>첫 SSE p99</dt><dd>{compare(row.firstMs.p99, split?.firstMs.p99)}</dd>
+                <dt>전체 완료 p95</dt><dd>{compare(row.completedMs.p95, split?.completedMs.p95)}</dd>
+                <dt>전체 완료 p99</dt><dd>{compare(row.completedMs.p99, split?.completedMs.p99)}</dd>
+                <dt>Worker 대기 p95</dt><dd>{compare(row.workerQueueP95Ms, split?.workerQueueP95Ms)}</dd>
+                <dt>후보 검색 p95</dt><dd>{compare(row.workerRetrievalP95Ms, split?.workerRetrievalP95Ms)}</dd>
+                <dt>생성 호출 합계</dt><dd>{row.generationCalls} → {split?.generationCalls ?? "—"}회</dd>
+              </dl>
+            </section>
+          );
+        })}
       </div>
-      <p>HTTP 전송부터 비어 있지 않은 첫 답변과 완료 이벤트를 측정했습니다. 이 표본에서 p99는 관측 최댓값입니다. 예열 {report.warmupRequests}건은 집계에서 제외했습니다.</p>
+      <p>HTTP 전송부터 비어 있지 않은 첫 답변과 완료 이벤트를 측정했습니다. 경로별 표본이 12·24건이므로 이 표의 p99는 관측 최댓값입니다. 예열은 제외했습니다.</p>
       <h2>근거 품질 회귀</h2>
       <div className={styles.corpora}>
-        {report.quality.map((workspace) => (
-          <section className={`panel ${styles.metricCard}`} key={workspace.workspaceId}>
-            <h3>{corpus[workspace.workspaceId]}</h3>
-            <dl className={styles.metrics}>
-              <dt>5차보다 기대 회의가 줄어든 검색 문맥</dt><dd>{ratio(workspace.contextRegressions, workspace.contextComparisons)}</dd>
-              <dt>원문·저장 출처와 일치한 인용</dt><dd>{ratio(workspace.exactCitations, workspace.citationCount)}</dd>
-              <dt>인용이 전체 내용을 지지한 주장</dt><dd>{ratio(workspace.supportedClaims, workspace.semanticClaims)}</dd>
-              <dt>기대 회의를 모두 인용한 종합 (5차 → 6차)</dt>
-              <dd>{workspace.allCitedMeetingsBefore} → {ratio(workspace.allCitedMeetingsAfter, workspace.pairedSynthesis)}</dd>
-            </dl>
-          </section>
-        ))}
+        {after.quality.map((workspace) => {
+          const before = report.quality.find((item) => item.workspaceId === workspace.workspaceId);
+          return (
+            <section className={`panel ${styles.metricCard}`} key={workspace.workspaceId}>
+              <h3>{corpus[workspace.workspaceId]}</h3>
+              <dl className={`${styles.metrics} ${styles.comparisonMetrics}`}>
+                <dt>분리 후 기대 회의가 줄어든 검색 문맥</dt>
+                <dd>{ratio(workspace.sharedRegressions, workspace.sharedComparisons)}</dd>
+                <dt>원문·저장 출처와 일치한 인용</dt>
+                <dd>{before && `${before.exactCitations}/${before.citationCount} → `}{ratio(workspace.exactCitations, workspace.citationCount)}</dd>
+                <dt>인용이 전체를 지지한 주장</dt>
+                <dd>{before && `${before.supportedClaims}/${before.semanticClaims} → `}{ratio(workspace.supportedClaims, workspace.semanticClaims)}</dd>
+                <dt>기대 회의를 모두 인용한 종합</dt>
+                <dd>{before && `${before.allCitedMeetingsAfter}/${before.pairedSynthesis} → `}{ratio(workspace.allCitedMeetingsAfter, workspace.pairedSynthesis)}</dd>
+              </dl>
+            </section>
+          );
+        })}
       </div>
-      <p>문서 찾기의 분류 모델 호출도 {report.lookupClassificationCalls}회였습니다. 의미 검수는 동시 {report.levels.at(-1)!.concurrency}건에서 사례별 첫 완료 답변을 사용했습니다. <a href={`${repo}/tree/codex/hybrid-search-phase6/experiments/hybrid-search`}>6차 코드와 재실행 방법</a></p>
+      <p>분리 후 문서 찾기 {after.lookupRequests}건의 분류·생성 모델 호출은 각각 {after.lookupClassificationCalls}회와 {after.lookupGenerationCalls}회였습니다. <a href={`${repo}/tree/codex/hybrid-search-lookup-worker/experiments/hybrid-search`}>Worker 분리 코드와 재실행 방법</a></p>
     </section>
   );
 }
