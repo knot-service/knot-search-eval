@@ -94,3 +94,14 @@ export async function readWorkspace1Artifact(kind: "dataset" | "phase1" | "phase
   );
   return result.rows[0]?.artifact ?? null;
 }
+
+export async function readWorkspace458SearchCases(): Promise<unknown> {
+  const p = connection();
+  const result = await p.query<{ cases: unknown }>(
+    `SELECT dataset->'cases' AS cases FROM eval_state
+     CROSS JOIN LATERAL jsonb_array_elements(data->'datasets') AS dataset
+     WHERE eval_state.id=1 AND dataset->>'id'=$1 AND dataset->>'version'=$2 AND dataset->>'locked'='true'`,
+    ["knot-workspace-458", "1.30"],
+  );
+  return result.rows[0]?.cases ?? null;
+}

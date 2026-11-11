@@ -7,6 +7,7 @@ import { Workspace1EvaluationDraft } from "./Workspace1EvaluationDraft";
 import { Workspace1Phase1 } from "./Workspace1Phase1";
 import { Workspace1SearchQuality } from "./Workspace1SearchQuality";
 import { SpringSearchReport } from "./SpringSearchReport";
+import { LabSearchPanel } from "./LabSearchPanel";
 
 const modes = [
   { id: "keyword", label: "키워드" },
@@ -14,6 +15,7 @@ const modes = [
   { id: "hybrid", label: "하이브리드" },
 ] as const;
 const tabs = [
+  { id: "search", label: "직접 검색" },
   { id: "comparison", label: "검색 방식 비교" },
   { id: "lookup", label: "문서 찾기" },
   { id: "synthesis", label: "회의 종합" },
@@ -73,9 +75,9 @@ async function load(kind: Kind, method: "GET" | "POST", signal?: AbortSignal) {
 }
 
 export function HybridSearchLab({ localAccess }: { readonly localAccess: boolean }) {
-  const [tab, setTab] = useState<Tab>(localAccess ? "comparison" : "dataset");
+  const [tab, setTab] = useState<Tab>("search");
   const visibleTabs = tabs.filter(({ id }) =>
-    localAccess || id === "dataset" || id === "quality1" || id.startsWith("phase"));
+    localAccess || id === "search" || id === "dataset" || id === "quality1" || id.startsWith("phase"));
   return (
     <section aria-label="하이브리드 검색 실험">
       <div className="heading">
@@ -91,6 +93,7 @@ export function HybridSearchLab({ localAccess }: { readonly localAccess: boolean
           </button>
         ))}
       </nav>
+      {tab === "search" && <LabSearchPanel />}
       {tab === "corpus" && <CorpusPanel />}
       {tab === "dataset" && <Workspace1EvaluationDraft />}
       {tab === "phase1" && <Workspace1Phase1 />}

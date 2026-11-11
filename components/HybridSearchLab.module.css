@@ -264,3 +264,49 @@
   .generationTable { table-layout: fixed; }
   .generationTable td { line-height: 1.5; }
 }
+
+.manualSearch {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.manualSearch > .picker { max-width: 34rem; }
+.manualSearch h2 { margin-bottom: 4px; font-size: 1.125rem; }
+
+.searchInputRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 8px;
+  max-width: 42rem;
+}
+
+.searchInputRow input {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--white);
+  color: var(--ink);
+  font: inherit;
+}
+
+.searchInputRow input:focus-visible {
+  outline: 2px solid var(--violet);
+  outline-offset: 2px;
+}
+
+.searchResults {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding-inline-start: 24px;
+}
+
+.searchResults blockquote {
+  margin: 8px 0 0;
+  color: var(--body);
+}
