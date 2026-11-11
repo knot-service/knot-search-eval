@@ -69,6 +69,11 @@ const ServingIndexReport = z.object({
   checks: z.array(z.object({ label: z.string(), result: z.string() })),
   questions: z.array(z.object({ question: z.string(), route: z.string(), result: z.string() })),
 });
+const FullPostReport = z.object({
+  summary: z.string(),
+  rows: z.array(z.object({ label: z.string(), workspace1: z.string(), v130: z.string() })),
+  notes: z.array(z.string()),
+});
 const Report = z.object({
   supplement: SupplementReport.optional(),
   representative: RepresentativeReport.optional(),
@@ -82,6 +87,7 @@ const Report = z.object({
   meetingEvidence: MeetingEvidenceReport.optional(),
   topicStatusEvidence: MeetingEvidenceReport.optional(),
   servingIndex: ServingIndexReport.optional(),
+  fullPostReplay: FullPostReport.optional(),
   evidenceStages: z.array(z.object({
     stage: z.number(), setting: z.string(), included: z.number(),
     gained: z.number().nullable(), lost: z.number().nullable(),
@@ -118,7 +124,7 @@ export function SearchQualityReport({ result }: { readonly result: unknown }) {
   if (!parsed.success) return <p role="alert">정확도 1차 결과 형식을 확인해 주세요.</p>;
   const {
     s18, evidenceStages, supplement, representative, supportingDocuments, supportingSelection,
-    protectedSupport, remainingEvidence, tokenBudgets, sameDocumentEvidence, discoveryEvidence, meetingEvidence, topicStatusEvidence, servingIndex,
+    protectedSupport, remainingEvidence, tokenBudgets, sameDocumentEvidence, discoveryEvidence, meetingEvidence, topicStatusEvidence, servingIndex, fullPostReplay,
   } = parsed.data;
 
   return (
@@ -127,6 +133,7 @@ export function SearchQualityReport({ result }: { readonly result: unknown }) {
         <h2>근거 구절과 인용 정확도</h2>
         <p>비슷한 리랭킹 점수에서는 본문을 우선하고, 검색된 청크에 먼저 토큰을 배분했습니다. 관련도 차이가 큰 후보에는 짧은 구절을 남겨 다른 회의의 근거도 확인할 수 있게 했습니다.</p>
         <ul>
+          {fullPostReplay && <li><a href="#full-post-replay-heading">전체 탐색 POST 재생</a></li>}
           {servingIndex && <li><a href="#serving-index-heading">서빙 준비 · 문서 색인과 Qwen 탐색</a></li>}
           {topicStatusEvidence && <li><a href="#topic-status-heading">4,096토큰 · 질문 대상과 상태, 회의 ID 묶기</a></li>}
           {meetingEvidence && <li><a href="#meeting-evidence-heading">4,096토큰 · 회의별 핵심 구절 우선 배정</a></li>}
@@ -142,6 +149,21 @@ export function SearchQualityReport({ result }: { readonly result: unknown }) {
           {supportingSelection && <li><a href="#supporting-selection-heading">보조 문서 선택 개선</a></li>}
         </ul>
       </div>
+      {fullPostReplay && (
+        <section className={`panel ${styles.metricCard}`} aria-labelledby="full-post-replay-heading">
+          <h3 id="full-post-replay-heading" className={styles.evidenceHeading}>전체 탐색 POST 재생</h3>
+          <p>{fullPostReplay.summary}</p>
+          <table className={`${styles.timingTable} ${styles.recoveryTable}`} aria-label="평가셋별 탐색 POST 결과">
+            <thead><tr><th scope="col">지표</th><th scope="col">Workspace 1</th><th scope="col">v1.30</th></tr></thead>
+            <tbody>{fullPostReplay.rows.map((row) => (
+              <tr key={row.label}>
+                <th scope="row">{row.label}</th><td>{row.workspace1}</td><td>{row.v130}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+          <ul>{fullPostReplay.notes.map((note) => <li key={note}>{note}</li>)}</ul>
+        </section>
+      )}
       {servingIndex && (
         <section className={`panel ${styles.metricCard}`} aria-labelledby="serving-index-heading">
           <h3 id="serving-index-heading" className={styles.evidenceHeading}>서빙 준비 · 문서 색인과 Qwen 탐색</h3>
