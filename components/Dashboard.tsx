@@ -988,7 +988,7 @@ function Result({ result, candidateAvailable, experimentKind }: { result: Run["r
       ) : (
         <>
           <span
-            className={`badge ${result.status === "completed" ? "" : result.status === "hold" || result.status === "not_run" ? "neutral" : "warning"}`}
+            className={`badge ${result.status === "completed" ? "" : "warning"}`}
           >
             {labels[result.status]}
           </span>
