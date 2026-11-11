@@ -795,5 +795,143 @@
     },
     "sample": "양쪽에서 동일한 17문항을 순서를 바꿔 2회씩 실행했습니다. 생성 26건과 문서 찾기 8건씩입니다. Qwen 토큰은 모델 응답의 실제 사용량입니다. 지연은 이 순차 실행에서 관측했습니다.",
     "conclusion": "4,096토큰은 검색 문맥에 8구절을 추가했고, 기존 구절은 모두 보존했습니다. 두 차례 비교에서 기대 문서 인용은 각각 2·3건 추가됐고 6·3건 빠졌습니다. 추가 구절 전체를 인용한 것은 16회 중 1회였습니다. 5,120토큰에서 추가된 1구절도 별도로 Spring·Qwen에서 재생했습니다. Qwen 입력에는 들어갔지만 답변에서 출처 문서 인용이 빠졌습니다. 6,144토큰은 검색 재생에서 5,120토큰과 같은 근거를 포함했습니다."
+  },
+  "sameDocumentEvidence": {
+    "misses": [
+      {
+        "reason": "정답 문서의 다른 구절이 선택됨",
+        "count": 26
+      },
+      {
+        "reason": "같은 회의의 다른 문서가 선택됨",
+        "count": 5
+      },
+      {
+        "reason": "기대 회의가 문맥에 없음",
+        "count": 4
+      }
+    ],
+    "variants": [
+      {
+        "name": "4,096 기준선",
+        "included": 469,
+        "gained": 0,
+        "lost": 0,
+        "targetRecovered": 0
+      },
+      {
+        "name": "발췌당 +120토큰",
+        "included": 474,
+        "gained": 5,
+        "lost": 0,
+        "targetRecovered": 0
+      },
+      {
+        "name": "발췌당 +220토큰",
+        "included": 477,
+        "gained": 8,
+        "lost": 0,
+        "targetRecovered": 5
+      },
+      {
+        "name": "발췌당 +384토큰",
+        "included": 485,
+        "gained": 16,
+        "lost": 0,
+        "targetRecovered": 9
+      },
+      {
+        "name": "발췌당 +512토큰",
+        "included": 486,
+        "gained": 17,
+        "lost": 0,
+        "targetRecovered": 9
+      },
+      {
+        "name": "발췌당 +768토큰",
+        "included": 486,
+        "gained": 17,
+        "lost": 0,
+        "targetRecovered": 9
+      }
+    ],
+    "meetings": [
+      {
+        "workspace": 1,
+        "coverage": {
+          "before": {
+            "matched": 136,
+            "total": 140
+          },
+          "after": {
+            "matched": 136,
+            "total": 140
+          }
+        }
+      },
+      {
+        "workspace": 458,
+        "coverage": {
+          "before": {
+            "matched": 6,
+            "total": 8
+          },
+          "after": {
+            "matched": 6,
+            "total": 8
+          }
+        }
+      }
+    ],
+    "live": [
+      {
+        "workspace": 1,
+        "expectedCited": {
+          "before": {
+            "matched": 5,
+            "total": 14
+          },
+          "after": {
+            "matched": 8,
+            "total": 14
+          }
+        },
+        "exactCitations": {
+          "before": {
+            "matched": 73,
+            "total": 73
+          },
+          "after": {
+            "matched": 78,
+            "total": 78
+          }
+        }
+      },
+      {
+        "workspace": 458,
+        "expectedCited": {
+          "before": {
+            "matched": 1,
+            "total": 1
+          },
+          "after": {
+            "matched": 1,
+            "total": 1
+          }
+        },
+        "exactCitations": {
+          "before": {
+            "matched": 5,
+            "total": 5
+          },
+          "after": {
+            "matched": 4,
+            "total": 4
+          }
+        }
+      }
+    ],
+    "summary": "두 워크스페이스의 같은 260문항을 재생했습니다. 4,096토큰에서 이미 선택한 본문 발췌는 보존하고, 질문과 겹치는 표현이 있는 문장 쪽으로만 범위를 넓혔습니다. 발췌당 최대 512토큰을 추가한 설정은 선택 단계에서 빠진 9구절과 최종 발췌에서 빠진 8구절을 회복했습니다. 기존 기대 구절의 신규 누락은 0개였습니다.",
+    "citationSummary": "같은 19문항을 Spring·Qwen에서 비교했습니다. 문맥 선택에서 회복한 구절 전체의 최종 인용은 0/9 → 2/9였고, 전체 회복 구절의 인용은 0/17 → 7/17였습니다. 문항별 기대 문서 인용은 3건 추가됐고 2건 빠졌습니다. 두 건은 각각 원문과 다른 인용구와 답변당 3문서 한도에서 제외됐습니다. Workspace 458 S18-01은 양쪽에서 #2158을 인용했고, 문서 찾기는 각 4건에서 생성·분류 0회였습니다."
   }
 }
