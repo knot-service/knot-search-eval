@@ -12,6 +12,7 @@ import phase6Split from "../../../data/hybrid-search-phase6-lookup-worker.json";
 import phase6QwenReplay from "../../../data/hybrid-search-phase6-qwen-replay.json";
 import phase6GenerationReplay from "../../../data/hybrid-search-phase6-generation-routes.json";
 import phase6AgingReplay from "../../../data/hybrid-search-phase6-synthesis-aging.json";
+import phase6SustainedReplay from "../../../data/hybrid-search-phase6-sustained.json";
 
 export const dynamic = "force-dynamic";
 const Kind = z.enum(["comparison", "lookup", "synthesis", "corpus", "dataset", "phase1", "phase2", "phase3", "phase4", "phase5", "phase6"]);
@@ -79,7 +80,7 @@ async function forward(req: Request) {
   }
   if (springReport) {
     if (req.method !== "GET") return Response.json({ error: "게시된 실험 결과는 조회만 지원합니다." }, { status: 405 });
-    const phase6Report = { ...phase6, split: phase6Split, qwenReplay: phase6QwenReplay, generationReplay: phase6GenerationReplay, agingReplay: phase6AgingReplay };
+    const phase6Report = { ...phase6, split: phase6Split, qwenReplay: phase6QwenReplay, generationReplay: phase6GenerationReplay, agingReplay: phase6AgingReplay, sustainedReplay: phase6SustainedReplay };
     return Response.json({ phase4, phase5, phase6: phase6Report }[target], { headers });
   }
   if (artifact) {

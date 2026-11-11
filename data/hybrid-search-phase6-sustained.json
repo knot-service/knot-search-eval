@@ -1,0 +1,489 @@
+{
+  "before": {
+    "warmupRequests": 6,
+    "wavesPerLevel": 12,
+    "workerConcurrency": 2,
+    "lookupConcurrency": 1,
+    "streamConcurrency": 8,
+    "pollIntervalMs": 100,
+    "requests": 120,
+    "completed": 120,
+    "routeMatches": 120,
+    "lookupRequests": 12,
+    "lookupGenerationCalls": 0,
+    "lookupClassificationCalls": 0,
+    "quality": [
+      {
+        "workspaceId": 1,
+        "completedAnswers": 54,
+        "exactCitations": 120,
+        "citationCount": 120,
+        "claims": 107,
+        "uncitedClaims": 0,
+        "noClaimAnswers": 2,
+        "pairedSynthesis": 3,
+        "allCitedMeetingsAfter": 2,
+        "meetingContextRegressions": 0,
+        "generated": 54,
+        "allExpectedMeetingsCited": 51,
+        "missingCases": [
+          {
+            "caseId": "W1-0001-01",
+            "requests": 2
+          },
+          {
+            "caseId": "W1-0334-01",
+            "requests": 1
+          }
+        ],
+        "trackedCase": {
+          "requests": 0,
+          "allExpectedDocumentsInContext": 0,
+          "allExpectedDocumentsCited": 0,
+          "noCitations": 0
+        }
+      },
+      {
+        "workspaceId": 458,
+        "completedAnswers": 54,
+        "exactCitations": 88,
+        "citationCount": 88,
+        "claims": 87,
+        "uncitedClaims": 0,
+        "noClaimAnswers": 0,
+        "pairedSynthesis": 3,
+        "allCitedMeetingsAfter": 3,
+        "meetingContextRegressions": 0,
+        "generated": 54,
+        "allExpectedMeetingsCited": 54,
+        "missingCases": [],
+        "trackedCase": {
+          "requests": 2,
+          "allExpectedDocumentsInContext": 2,
+          "allExpectedDocumentsCited": 2,
+          "noCitations": 0
+        }
+      }
+    ],
+    "levels": [
+      {
+        "concurrency": 10,
+        "routes": [
+          {
+            "route": "DOCUMENT_FIND",
+            "stages": {
+              "workerQueue": {
+                "samples": 12,
+                "p95": 109,
+                "p99": 109
+              },
+              "retrieval": {
+                "samples": 12,
+                "p95": 70,
+                "p99": 70
+              },
+              "rerank": {
+                "samples": 12,
+                "p95": 0.0,
+                "p99": 0.0
+              },
+              "qwenFirstContent": {
+                "samples": 0,
+                "p95": null,
+                "p99": null
+              },
+              "qwenStreamTail": {
+                "samples": 0,
+                "p95": null,
+                "p99": null
+              },
+              "firstSse": {
+                "samples": 12,
+                "p95": 261.76,
+                "p99": 261.76
+              },
+              "completedSse": {
+                "samples": 12,
+                "p95": 262.02,
+                "p99": 262.02
+              }
+            },
+            "firstSseTail": []
+          },
+          {
+            "route": "MEETING_QUESTION",
+            "stages": {
+              "workerQueue": {
+                "samples": 96,
+                "p95": 4980,
+                "p99": 6319
+              },
+              "retrieval": {
+                "samples": 96,
+                "p95": 894,
+                "p99": 1491
+              },
+              "rerank": {
+                "samples": 96,
+                "p95": 810.17,
+                "p99": 1229.82
+              },
+              "qwenFirstContent": {
+                "samples": 96,
+                "p95": 1872,
+                "p99": 2564
+              },
+              "qwenStreamTail": {
+                "samples": 96,
+                "p95": 2540,
+                "p99": 2723
+              },
+              "firstSse": {
+                "samples": 96,
+                "p95": 7921.51,
+                "p99": 9304.84
+              },
+              "completedSse": {
+                "samples": 96,
+                "p95": 7921.59,
+                "p99": 9306.12
+              }
+            },
+            "firstSseTail": [
+              {
+                "percentile": "p95",
+                "workerQueue": 3420,
+                "retrieval": 620,
+                "rerank": 573.37,
+                "qwenFirstContent": 1927,
+                "qwenStreamTail": 1836,
+                "firstSse": 7921.51,
+                "completedSse": 7921.59
+              },
+              {
+                "percentile": "p99",
+                "workerQueue": 4749,
+                "retrieval": 956,
+                "rerank": 723.26,
+                "qwenFirstContent": 917,
+                "qwenStreamTail": 2453,
+                "firstSse": 9304.84,
+                "completedSse": 9306.12
+              }
+            ]
+          },
+          {
+            "route": "MULTI_MEETING_SYNTHESIS",
+            "stages": {
+              "workerQueue": {
+                "samples": 12,
+                "p95": 11348,
+                "p99": 11348
+              },
+              "retrieval": {
+                "samples": 12,
+                "p95": 1012,
+                "p99": 1012
+              },
+              "rerank": {
+                "samples": 12,
+                "p95": 943.33,
+                "p99": 943.33
+              },
+              "qwenFirstContent": {
+                "samples": 12,
+                "p95": 1188,
+                "p99": 1188
+              },
+              "qwenStreamTail": {
+                "samples": 12,
+                "p95": 3826,
+                "p99": 3826
+              },
+              "firstSse": {
+                "samples": 12,
+                "p95": 15087.61,
+                "p99": 15087.61
+              },
+              "completedSse": {
+                "samples": 12,
+                "p95": 15087.73,
+                "p99": 15087.73
+              }
+            },
+            "firstSseTail": []
+          }
+        ]
+      }
+    ],
+    "workerMatches": 120
+  },
+  "after": {
+    "warmupRequests": 6,
+    "wavesPerLevel": 12,
+    "workerConcurrency": 2,
+    "lookupConcurrency": 1,
+    "streamConcurrency": 8,
+    "pollIntervalMs": 100,
+    "requests": 120,
+    "completed": 120,
+    "routeMatches": 120,
+    "lookupRequests": 12,
+    "lookupGenerationCalls": 0,
+    "lookupClassificationCalls": 0,
+    "quality": [
+      {
+        "workspaceId": 1,
+        "completedAnswers": 54,
+        "exactCitations": 121,
+        "citationCount": 121,
+        "claims": 76,
+        "uncitedClaims": 0,
+        "noClaimAnswers": 11,
+        "pairedSynthesis": 3,
+        "allCitedMeetingsAfter": 1,
+        "meetingContextRegressions": 0,
+        "generated": 54,
+        "allExpectedMeetingsCited": 40,
+        "missingCases": [
+          {
+            "caseId": "W1-0001-01",
+            "requests": 11
+          },
+          {
+            "caseId": "W1-0322-01",
+            "requests": 1
+          },
+          {
+            "caseId": "W1-0334-01",
+            "requests": 2
+          }
+        ],
+        "trackedCase": {
+          "requests": 0,
+          "allExpectedDocumentsInContext": 0,
+          "allExpectedDocumentsCited": 0,
+          "noCitations": 0
+        }
+      },
+      {
+        "workspaceId": 458,
+        "completedAnswers": 54,
+        "exactCitations": 56,
+        "citationCount": 56,
+        "claims": 53,
+        "uncitedClaims": 0,
+        "noClaimAnswers": 2,
+        "pairedSynthesis": 3,
+        "allCitedMeetingsAfter": 2,
+        "meetingContextRegressions": 0,
+        "generated": 54,
+        "allExpectedMeetingsCited": 52,
+        "missingCases": [
+          {
+            "caseId": "S18-01",
+            "requests": 2
+          }
+        ],
+        "trackedCase": {
+          "requests": 2,
+          "allExpectedDocumentsInContext": 2,
+          "allExpectedDocumentsCited": 0,
+          "noCitations": 2
+        }
+      }
+    ],
+    "levels": [
+      {
+        "concurrency": 10,
+        "routes": [
+          {
+            "route": "DOCUMENT_FIND",
+            "stages": {
+              "workerQueue": {
+                "samples": 12,
+                "p95": 109,
+                "p99": 109
+              },
+              "retrieval": {
+                "samples": 12,
+                "p95": 67,
+                "p99": 67
+              },
+              "rerank": {
+                "samples": 12,
+                "p95": 0.0,
+                "p99": 0.0
+              },
+              "qwenFirstContent": {
+                "samples": 0,
+                "p95": null,
+                "p99": null
+              },
+              "qwenStreamTail": {
+                "samples": 0,
+                "p95": null,
+                "p99": null
+              },
+              "firstSse": {
+                "samples": 12,
+                "p95": 265.47,
+                "p99": 265.47
+              },
+              "completedSse": {
+                "samples": 12,
+                "p95": 265.49,
+                "p99": 265.49
+              }
+            },
+            "firstSseTail": []
+          },
+          {
+            "route": "MEETING_QUESTION",
+            "stages": {
+              "workerQueue": {
+                "samples": 96,
+                "p95": 7574,
+                "p99": 7865
+              },
+              "retrieval": {
+                "samples": 96,
+                "p95": 859,
+                "p99": 1319
+              },
+              "rerank": {
+                "samples": 96,
+                "p95": 801.1,
+                "p99": 1192.04
+              },
+              "qwenFirstContent": {
+                "samples": 96,
+                "p95": 1569,
+                "p99": 2798
+              },
+              "qwenStreamTail": {
+                "samples": 96,
+                "p95": 3815,
+                "p99": 4380
+              },
+              "firstSse": {
+                "samples": 96,
+                "p95": 11081.23,
+                "p99": 13533.54
+              },
+              "completedSse": {
+                "samples": 96,
+                "p95": 11081.54,
+                "p99": 13645.36
+              }
+            },
+            "firstSseTail": [
+              {
+                "percentile": "p95",
+                "workerQueue": 7157,
+                "retrieval": 498,
+                "rerank": 461.84,
+                "qwenFirstContent": 1057,
+                "qwenStreamTail": 2291,
+                "firstSse": 11081.23,
+                "completedSse": 11081.54
+              },
+              {
+                "percentile": "p99",
+                "workerQueue": 7193,
+                "retrieval": 547,
+                "rerank": 492.46,
+                "qwenFirstContent": 1672,
+                "qwenStreamTail": 4074,
+                "firstSse": 13533.54,
+                "completedSse": 13645.36
+              }
+            ]
+          },
+          {
+            "route": "MULTI_MEETING_SYNTHESIS",
+            "stages": {
+              "workerQueue": {
+                "samples": 12,
+                "p95": 5715,
+                "p99": 5715
+              },
+              "retrieval": {
+                "samples": 12,
+                "p95": 751,
+                "p99": 751
+              },
+              "rerank": {
+                "samples": 12,
+                "p95": 700.83,
+                "p99": 700.83
+              },
+              "qwenFirstContent": {
+                "samples": 12,
+                "p95": 1392,
+                "p99": 1392
+              },
+              "qwenStreamTail": {
+                "samples": 12,
+                "p95": 5337,
+                "p99": 5337
+              },
+              "firstSse": {
+                "samples": 12,
+                "p95": 12556.06,
+                "p99": 12556.06
+              },
+              "completedSse": {
+                "samples": 12,
+                "p95": 12556.14,
+                "p99": 12556.14
+              }
+            },
+            "firstSseTail": []
+          }
+        ]
+      }
+    ],
+    "workerMatches": 120
+  },
+  "contextComparisons": [
+    {
+      "workspaceId": 1,
+      "requests": 54
+    },
+    {
+      "workspaceId": 458,
+      "requests": 54
+    }
+  ],
+  "promotedByConcurrency": {
+    "10": 12
+  },
+  "promotionWaitMs": 4000,
+  "plannedDispatchDelaysMs": [
+    0,
+    0,
+    0,
+    0,
+    250,
+    250,
+    1000,
+    2200,
+    4500,
+    5800
+  ],
+  "queueEvidence": {
+    "before": {
+      "waves": 12,
+      "lateQuestionWaves": 12,
+      "contestedAtThresholdWaves": 12,
+      "overtookQueuedQuestionWaves": 0
+    },
+    "after": {
+      "waves": 12,
+      "lateQuestionWaves": 12,
+      "contestedAtThresholdWaves": 12,
+      "overtookQueuedQuestionWaves": 12
+    }
+  }
+}
