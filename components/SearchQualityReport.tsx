@@ -49,6 +49,7 @@ const Report = z.object({
   supplement: SupplementReport.optional(),
   representative: RepresentativeReport.optional(),
   supportingDocuments: SupportingDocumentReport.optional(),
+  supportingSelection: SupportingDocumentReport.optional(),
   evidenceStages: z.array(z.object({
     stage: z.number(), setting: z.string(), included: z.number(),
     gained: z.number().nullable(), lost: z.number().nullable(),
@@ -83,7 +84,7 @@ const trackedStages = [
 export function SearchQualityReport({ result }: { readonly result: unknown }) {
   const parsed = Report.safeParse(result);
   if (!parsed.success) return <p role="alert">정확도 1차 결과 형식을 확인해 주세요.</p>;
-  const { s18, evidenceStages, supplement, representative, supportingDocuments } = parsed.data;
+  const { s18, evidenceStages, supplement, representative, supportingDocuments, supportingSelection } = parsed.data;
 
   return (
     <section className={styles.content} aria-label="정확도 1차 전후 비교">
@@ -95,8 +96,11 @@ export function SearchQualityReport({ result }: { readonly result: unknown }) {
           {supplement && <li><a href="#supplement-heading">빈 문맥 슬롯 · 겹침 감점 실험</a></li>}
           {representative && <li><a href="#representative-heading">회의별 대표와 문맥 범위 실험</a></li>}
           {supportingDocuments && <li><a href="#supporting-document-heading">같은 회의의 보조 근거 실험</a></li>}
+          {supportingSelection && <li><a href="#supporting-selection-heading">보조 문서 선택 개선</a></li>}
         </ul>
       </div>
+      {supportingSelection && <TargetedRecoveryComparison report={supportingSelection} targetCount={49}
+        headingId="supporting-selection-heading" title="보조 문서 선택 개선" />}
       {supportingDocuments && <TargetedRecoveryComparison report={supportingDocuments} targetCount={85}
         headingId="supporting-document-heading" title="같은 회의의 보조 근거 실험" />}
       {representative && <TargetedRecoveryComparison report={representative} targetCount={62}
